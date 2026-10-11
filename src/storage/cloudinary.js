@@ -59,8 +59,17 @@ function createCloudinaryStorage(creds) {
         const done = (err, result) => {
           if (settled) return;
           settled = true;
-          if (err) reject(err instanceof Error ? err : new Error(err.message || 'Cloudinary upload failed'));
-          else resolve(result);
+          if (err) {
+            const e = err instanceof Error ? err : new Error(err.message || 'Cloudinary upload failed');
+            // The SDK hides the response body for 403; point operators at the diagnostics.
+            if (/\b403\b/.test(e.message)) {
+              e.message += ' (Cloudinary refused the upload: check the API key permissions and the'
+                + ' security settings for raw/authenticated uploads; run "npm run cloudinary:diagnose")';
+            }
+            reject(e);
+          } else {
+            resolve(result);
+          }
         };
         const up = cloudinary.uploader.upload_stream(
           { ...RESOURCE, public_id: publicId(id), overwrite: false, unique_filename: false, timeout: 120000 },
