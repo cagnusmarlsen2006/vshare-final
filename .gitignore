@@ -1,0 +1,12 @@
+node_modules/
+.env
+.master.key
+data/
+.mock_storage/
+*.db
+*.db-wal
+*.db-shm
+dist/
+*.zip
+npm-debug.log*
+.DS_Store
