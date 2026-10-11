@@ -3,56 +3,56 @@
 > node --test --test-reporter=spec test/vshare.test.js test/limits.test.js
 
 ▶ oversize uploads (TEST_MAX_FILE_SIZE_BYTES = 1 MB)
-  ✔ reports the limit via /api/config (16.590241ms)
-  ✔ accepts a file exactly at the limit (31.14659ms)
-  ✔ rejects an oversize upload with Content-Length (413, nothing stored) (7.098637ms)
-  ✔ rejects an oversize CHUNKED upload mid-stream and deletes the partial object (79.533441ms)
-✔ oversize uploads (TEST_MAX_FILE_SIZE_BYTES = 1 MB) (313.081542ms)
+  ✔ reports the limit via /api/config (19.925234ms)
+  ✔ accepts a file exactly at the limit (50.100943ms)
+  ✔ rejects an oversize upload with Content-Length (413, nothing stored) (10.416034ms)
+  ✔ rejects an oversize CHUNKED upload mid-stream and deletes the partial object (81.192608ms)
+✔ oversize uploads (TEST_MAX_FILE_SIZE_BYTES = 1 MB) (333.377417ms)
 ▶ test hooks cannot be enabled outside NODE_ENV=test + STORAGE=mock
-  ✔ ignores TEST_MAX_FILE_SIZE_BYTES (9.5535ms)
-  ✔ rejects expiry_seconds (5.796424ms)
-  ✔ has no cleanup endpoint (4.695981ms)
-✔ test hooks cannot be enabled outside NODE_ENV=test + STORAGE=mock (192.167436ms)
+  ✔ ignores TEST_MAX_FILE_SIZE_BYTES (15.627062ms)
+  ✔ rejects expiry_seconds (9.057278ms)
+  ✔ has no cleanup endpoint (5.335654ms)
+✔ test hooks cannot be enabled outside NODE_ENV=test + STORAGE=mock (230.940226ms)
 ▶ basics
-  ✔ GET /healthz returns ok and nothing sensitive (11.761478ms)
-  ✔ serves the upload page with a strict CSP (no inline scripts/styles) (9.936057ms)
-✔ basics (131.464048ms)
+  ✔ GET /healthz returns ok and nothing sensitive (12.769025ms)
+  ✔ serves the upload page with a strict CSP (no inline scripts/styles) (11.515709ms)
+✔ basics (162.031229ms)
 ▶ upload and download round trips (byte-for-byte SHA-256)
-  ✔ report.pdf (596 bytes) (31.799331ms)
-  ✔ slides.pptx (263221 bytes) (23.018188ms)
-  ✔ essay.docx (917 bytes) (8.621328ms)
-  ✔ bundle.zip (100240 bytes) (11.946479ms)
-  ✔ picture.png (32328 bytes) (8.076313ms)
-  ✔ notes – ünïcödé.txt (43 bytes) (8.144221ms)
-  ✔ 20 MB file streams through intact (273.666891ms)
-✔ upload and download round trips (byte-for-byte SHA-256) (366.210186ms)
+  ✔ report.pdf (596 bytes) (29.74552ms)
+  ✔ slides.pptx (263221 bytes) (27.960655ms)
+  ✔ essay.docx (917 bytes) (8.709869ms)
+  ✔ bundle.zip (100240 bytes) (10.900933ms)
+  ✔ picture.png (32328 bytes) (8.430659ms)
+  ✔ notes – ünïcödé.txt (43 bytes) (6.222723ms)
+  ✔ 20 MB file streams through intact (297.131986ms)
+✔ upload and download round trips (byte-for-byte SHA-256) (390.102091ms)
 ▶ download limits
-  ✔ max 1 download: only the first download works, then 410 and the file is purged (67.636378ms)
-  ✔ max N downloads: exactly N succeed (14.925939ms)
-  ✔ 6 simultaneous downloads of a 1-download file: exactly one succeeds (28.809254ms)
-  ✔ opening the page, GET on the download URL and HEAD requests never count (16.930876ms)
-  ✔ an interrupted download is rolled back and does not count (263.648215ms)
-✔ download limits (392.590478ms)
+  ✔ max 1 download: only the first download works, then 410 and the file is purged (68.779377ms)
+  ✔ max N downloads: exactly N succeed (18.020494ms)
+  ✔ 6 simultaneous downloads of a 1-download file: exactly one succeeds (29.666965ms)
+  ✔ opening the page, GET on the download URL and HEAD requests never count (14.281035ms)
+  ✔ an interrupted download is rolled back and does not count (246.804717ms)
+✔ download limits (378.122582ms)
 ▶ expiry and cleanup
-  ✔ a file expires after its time limit (410) and cleanup removes it from storage and DB (1317.237478ms)
-  ✔ cleanup removes abandoned partial uploads (pending rows + partial objects) (3.16085ms)
-✔ expiry and cleanup (1320.638246ms)
+  ✔ a file expires after its time limit (410) and cleanup removes it from storage and DB (1317.770899ms)
+  ✔ cleanup removes abandoned partial uploads (pending rows + partial objects) (3.850954ms)
+✔ expiry and cleanup (1321.944729ms)
 ▶ passwords
-  ✔ correct password downloads; missing or wrong password re-renders the page with a message (487.525769ms)
-  ✔ 5 wrong attempts lock the file for 15 minutes; it is never deleted (723.835256ms)
-✔ passwords (1211.658972ms)
+  ✔ correct password downloads; missing or wrong password re-renders the page with a message (398.302401ms)
+  ✔ 5 wrong attempts lock the file for 15 minutes; it is never deleted (706.887827ms)
+✔ passwords (1105.54307ms)
 ▶ delete link
-  ✔ GET only shows a confirmation; wrong tokens are rejected; POST deletes (22.242359ms)
-✔ delete link (22.414471ms)
+  ✔ GET only shows a confirmation; wrong tokens are rejected; POST deletes (19.34825ms)
+✔ delete link (19.527915ms)
 ▶ integrity
-  ✔ tampered ciphertext fails the GCM check, the client never gets the full file, and the count is rolled back (14.538433ms)
-✔ integrity (14.693228ms)
+  ✔ tampered ciphertext fails the GCM check, the client never gets the full file, and the count is rolled back (17.529031ms)
+✔ integrity (17.683111ms)
 ▶ upload validation
-  ✔ rejects settings sent after the file and leaves nothing behind (54.306155ms)
-  ✔ rejects invalid settings with JSON errors (23.054575ms)
-  ✔ sanitises path-traversal file names (metadata only) (3.961ms)
-  ✔ unknown ids give 410, malformed ids 404, and errors never leak stack traces (7.075266ms)
-✔ upload validation (88.759574ms)
+  ✔ rejects settings sent after the file and leaves nothing behind (56.259308ms)
+  ✔ rejects invalid settings with JSON errors (12.653043ms)
+  ✔ sanitises path-traversal file names (metadata only) (3.744741ms)
+  ✔ unknown ids give 410, malformed ids 404, and errors never leak stack traces (6.236867ms)
+✔ upload validation (79.249199ms)
 ℹ tests 31
 ℹ suites 10
 ℹ pass 31
@@ -60,4 +60,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 3682.841142
+ℹ duration_ms 3622.708422

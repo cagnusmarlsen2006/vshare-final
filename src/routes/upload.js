@@ -85,13 +85,35 @@ function createSizeMeter(limit) {
   return meter;
 }
 
-/** Read (and discard) at most `max` more bytes so the client can see our error, then hang up. */
-function drainThenClose(req, max = 8 * 1024 * 1024) {
+/**
+ * Reply with an error only AFTER the rest of the request body has been read
+ * (discarded). Replying first and closing the socket while the client is still
+ * sending makes it see a connection reset (EPIPE) instead of our message. To
+ * bound the cost, at most `maxBytes` / `maxMs` are drained before we reply and
+ * hang up anyway.
+ */
+function replyAfterDrain(req, reply, { maxBytes = 8 * 1024 * 1024, maxMs = 10000 } = {}) {
+  let done = false;
   let drained = 0;
+  let timer = null;
+  const finish = (hangUp) => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    reply();
+    if (hangUp) req.socket.end();
+  };
+  if (req.complete || req.readableEnded) {
+    finish(false);
+    return;
+  }
+  timer = setTimeout(() => finish(true), maxMs);
   req.on('data', (chunk) => {
     drained += chunk.length;
-    if (drained > max) req.destroy();
+    if (drained > maxBytes) finish(true);
   });
+  req.on('end', () => finish(false));
+  req.on('close', () => { done = true; clearTimeout(timer); });
   req.resume();
 }
 
@@ -108,9 +130,10 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
     }
     const declared = Number(req.headers['content-length']);
     if (Number.isFinite(declared) && declared > limit + MULTIPART_OVERHEAD) {
-      res.set('Connection', 'close');
-      sendError(req, res, 413, tooLargeMessage);
-      drainThenClose(req);
+      replyAfterDrain(req, () => {
+        res.set('Connection', 'close');
+        sendError(req, res, 413, tooLargeMessage);
+      });
       return;
     }
 
@@ -178,11 +201,11 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
         files.endUpload(id);
       })();
 
-      if (!res.headersSent) {
+      replyAfterDrain(req, () => {
+        if (res.headersSent) return;
         res.set('Connection', 'close');
         sendError(req, res, status, message);
-      }
-      drainThenClose(req);
+      });
     }
 
     req.on('close', () => {

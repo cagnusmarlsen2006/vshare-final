@@ -378,7 +378,7 @@ version in [`docs/test-results.txt`](docs/test-results.txt)):
 ℹ suites 10
 ℹ pass 31
 ℹ fail 0
-ℹ duration_ms 3683
+ℹ duration_ms 3622
 ```
 
 The same 31 tests also passed on **Node 18.20.8** and **Node 20.20.2** in the sandbox.
