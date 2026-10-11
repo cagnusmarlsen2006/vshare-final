@@ -1,20 +1,31 @@
-# Vshare: self-destructing, encrypted file sharing
+# Vshare: secure file sharing, four ways
 
-Vshare lets you share a file through a link that **destroys itself** after a time limit
-(10 minutes to 7 days) and/or a number of downloads (1 to 10), whichever comes first.
-Every file is encrypted with its own AES-256-GCM key **before it leaves the server**, so
-the storage provider (Cloudinary) only ever holds ciphertext.
+Vshare is one Node.js app with **four file-sharing systems** behind a common hub, plus an
+offline help **chatbot** on every page:
+
+| System | What it does |
+|---|---|
+| **Self-Destructing File Sharing** | A link that destroys itself after a time limit (10 min to 7 days) and/or N downloads (1 to 10), optional password, private delete link |
+| **Context-Based File Sharing** | Faculty upload with a **one-time access key locked to a campus**; students download only with the key **and** the right campus, once |
+| **Study Material Smart Distribution** | Faculty upload once for a **department + year**; students list their class's material; documents are auto-tagged with **TF-IDF keywords** |
+| **Fake News Proof File Sharing** | **NER + text mining + a machine-learning classifier + source checks** score a document's credibility; only credible files get a share link, the rest are deleted |
+
+Every file in every system is encrypted with its own AES-256-GCM key **before it leaves the
+server**, so the storage provider (Cloudinary) only ever holds ciphertext.
 
 Built as an AWS course project and portfolio piece: one Node.js process serves the API
-and the frontend, with SQLite for metadata and Cloudinary for (encrypted) blobs.
+and the frontend, with SQLite for metadata and Cloudinary for (encrypted) blobs. The NLP
+and ML run **inside the app, offline** (no external AI service).
 
-![Upload page](docs/screenshots/01-upload.png)
+![Hub](docs/screenshots/09-hub.png)
 
 ---
 
 ## Contents
 
 - [Features](#features)
+- [The three additional systems](#the-three-additional-systems)
+- [NLP and machine learning (fake-news detection)](#nlp-and-machine-learning-fake-news-detection)
 - [Tech stack](#tech-stack)
 - [Quick start on Windows (PowerShell)](#quick-start-on-windows-powershell)
 - [Quick start on macOS / Linux](#quick-start-on-macos--linux)
@@ -33,6 +44,8 @@ and the frontend, with SQLite for metadata and Cloudinary for (encrypted) blobs.
 
 ## Features
 
+Self-destructing sharing (the original core, reused by every system):
+
 | | Feature |
 |---|---|
 | ⬆️ | Drag-and-drop or click upload of any file type, with **real upload progress** (XHR) and clear messages for too-large or failed uploads |
@@ -45,6 +58,118 @@ and the frontend, with SQLite for metadata and Cloudinary for (encrypted) blobs.
 | 🧹 | Cleanup every minute (node-cron) and at startup: expired, used-up and abandoned partial uploads are removed from storage **and** DB; files are deleted right after their final allowed download |
 | ❤️ | `GET /healthz` → `ok` for Docker / AWS health checks |
 | 🎨 | Claymorphism UI: plain HTML/CSS/vanilla JS, no build step, no CDN, works offline; responsive to 360 px; keyboard + screen-reader friendly; respects `prefers-reduced-motion` |
+| 💬 | **Help chatbot** (bottom-right on every page): offline intent classifier (stemming + TF-IDF + cosine similarity) that answers how-to, security and ML questions with links. Nothing is stored |
+
+## The three additional systems
+
+### Context-Based (campus-locked) File Sharing · `/context.html`
+
+1. **Faculty** choose a campus and press **Generate key** → a one-time key like
+   `VS-7KQM-2XWD-9FHT-4RNC` (16 symbols from a 31-character alphabet without look-alikes,
+   ≈79 bits). Only its SHA-256 is stored, with the campus, as a reservation valid for 1 hour.
+2. Faculty upload the file with the key. The key is **atomically bound** to exactly one file
+   (`UPDATE … WHERE file_id IS NULL`), so the same key can never carry two uploads.
+3. **Students** pick their campus and paste the key. A check endpoint shows the file name
+   first (uses nothing up); the real download is a normal form POST that goes through the
+   same **atomic one-download claim** as share links, so the key dies after one download.
+   Wrong campus → *"This key is locked to a different campus"* (403).
+4. These files are **not reachable by their `/f/:id` link**, only by key + campus.
+
+![Campus sharing](docs/screenshots/11-campus-faculty.png)
+
+> Campus verification is "key + selected campus" (your chosen design). A student could
+> select the campus without being there; IP-range or GPS checks are listed under future work.
+
+### Study Material Smart Distribution · `/study.html`
+
+- Faculty choose **department** (CSE, IT, ECE, EEE, MECH, CIVIL, AI & DS; configurable),
+  **year** (1 to 4), **subject**, **material type** (Notes, Question Bank, Assignment,
+  Syllabus, Reference) and how long to keep it (30 / 90 / 180 days), then upload.
+- Text documents (PDF, DOCX, PPTX, TXT, HTML) are **auto-tagged with TF-IDF keywords**
+  extracted from their content (text mining), e.g. *measles, immunity, europe…*
+- Students pick department + year (and optionally a type) and get their class's list; each
+  item opens the normal download page with class badges. No download limit.
+
+![Study material](docs/screenshots/13-study.png)
+
+### Fake News Proof File Sharing · `/verify.html`
+
+Upload a document (PDF, DOCX, PPTX, TXT, HTML; max 10 MB because it is analysed in memory)
+with its **source URL** and optionally your **trusted domains**. The file is encrypted and
+stored as usual while a plaintext copy in RAM (never on disk) goes through the NLP pipeline
+below. **Credible (≥ 65/100)** → a self-destructing share link + the full report.
+**Uncertain or likely fake** → HTTP 422 with the report, and the stored file is **deleted**.
+The share page of a verified file shows *"✓ Verified · credibility N/100 · Source: …"*.
+
+| Credible (shared) | Likely fake (rejected) |
+|---|---|
+| ![Credible](docs/screenshots/14-verify-credible.png) | ![Rejected](docs/screenshots/15-verify-rejected.png) |
+
+## NLP and machine learning (fake-news detection)
+
+All of it runs inside the Node.js process, offline. Code: [`src/nlp/`](src/nlp/).
+
+```mermaid
+flowchart LR
+  F["Uploaded file<br/>(RAM copy only)"] --> X["Text extraction<br/>PDF (incl. CID fonts) · DOCX · PPTX · HTML · TXT"]
+  X --> T["Text mining<br/>normalise · tokenise · stop words · Porter stemming<br/>uni+bigrams · TF-IDF · readability · style signals"]
+  X --> N["NER<br/>people · organisations · places (compromise)<br/>+ titles/gazetteer · dates · money · % · emails · URLs (regex)"]
+  T --> M["ML classifier<br/>TF-IDF + logistic regression<br/>P(fake)"]
+  T --> S["Style score<br/>clickbait words · ALL-CAPS · '!' ·<br/>attribution · quotes · named sources"]
+  N --> S
+  U["Source URL<br/>(never fetched)"] --> C["Source credibility<br/>trusted list · reputable / unreliable / satire lists ·<br/>.gov/.edu/.ac.in · look-alike domains · IP hosts"]
+  M --> FU["Fusion + rules<br/>→ credibility 0-100 + verdict + reasons"]
+  S --> FU
+  C --> FU
+  T --> K["Keywords (TF-IDF) +<br/>extractive summary"]
+```
+
+**Concepts used (all implemented in this repo, tested in `test/nlp.test.js`):**
+
+| Area | What | Where |
+|---|---|---|
+| Text extraction | ZIP reader for DOCX/PPTX, PDF content-stream parser (FlateDecode, `Tj`/`TJ`, ToUnicode CMaps for embedded/CID fonts), HTML stripping; zip-bomb limits | `extract.js` |
+| Text mining | Unicode normalisation, sentence splitting (abbreviation-aware), tokenisation, stop-word removal, **Porter stemmer** (verified against reference outputs), **n-grams**, **TF-IDF**, keyword extraction, **extractive summarisation**, Flesch readability, stylometric signals | `text.js`, `analyze.js` |
+| NER | `compromise` (offline rule-based POS tagging + lexicon) for PERSON / PLACE / ORGANIZATION, plus honorific patterns, a news-organisation gazetteer and regex extractors for DATE / MONEY / PERCENT / EMAIL / URL; per-extractor counts merged | `ner.js` |
+| ML | **TF-IDF + logistic regression** (SGD, L2, sublinear TF, L2-normalised vectors) vs a **multinomial Naive Bayes** baseline; stratified 80/20 split with a fixed seed; vocabulary built from training data only (no leakage) | `classifier.js`, `scripts/train-fake-news.js` |
+| Source analysis | Registrable-domain parsing, curated lists, institutional TLDs, **look-alike detection** (Levenshtein distance, brand + extra words, `.com.co`) | `source.js` |
+| Chatbot | Intent classification with stemming + TF-IDF + **cosine similarity** | `chatbot.js` |
+
+### Real model results
+
+Dataset: **`fake_or_real_news.csv`** (G. McIntire; 6,335 labelled English news articles,
+2015-2016, balanced FAKE/REAL; mirrored at github.com/lutzhamel/fake-news). It is downloaded
+by `npm run train:model` and **not** redistributed here. Held-out test set: **1,266
+articles** never seen in training. Output in [`docs/ml-metrics.json`](docs/ml-metrics.json).
+
+| Model (30,000 features) | Accuracy | Precision (FAKE) | Recall (FAKE) | F1 (FAKE) |
+|---|---|---|---|---|
+| **TF-IDF + logistic regression** (shipped) | **90.3%** | 88.6% | 92.4% | 90.5% |
+| Multinomial Naive Bayes (baseline) | 87.1% | 87.1% | 87.2% | 87.1% |
+
+Confusion matrix (logistic regression): 584 fake caught, 559 real passed, 75 real wrongly
+flagged, 48 fake missed. Training takes ~13 s on a 4-vCPU machine; the model file is 788 KB.
+
+**Fusion weights were chosen on the same held-out set** (`npm run eval:fusion`,
+[`docs/ml-fusion-eval.txt`](docs/ml-fusion-eval.txt)). Without a source URL the score is
+0.8 × (1 − P(fake)) + 0.2 × style; with one, 0.5 / 0.15 / 0.35 (ML / style / source).
+At the chosen 0.8 / 0.2, accuracy is 89.9% and **4.4% of the files that would be shared are
+fake** (vs 3.3% for ML alone), while fewer real articles are wrongly rejected (35 vs 57).
+
+**Rules on top of the weighted score:**
+- A known unreliable, satire, look-alike, IP-address or invalid source caps the score at 35.
+- P(fake) ≥ 0.9 caps the score at 40: the source URL is **self-reported** (never fetched),
+  so it can never rescue text the model is sure is fake.
+- *Provenance rule:* a reputable or trusted source + sober, attributed writing
+  (style ≥ 75) + P(fake) < 0.8 lifts the score to the sharing threshold.
+- No readable text (e.g. a scanned image) → at most "uncertain": it cannot be verified.
+
+**Honest caveat.** The model learned the dataset's world: 2015-2016 US politics. Its top
+"fake" indicators include topical words (*hillary, wikileaks, russia*), so on other topics
+(health, science, campus news) it is much less reliable. Example: the genuine WHO measles
+report in `test/fixtures/real-article.txt` scores P(fake) = 0.66 from the model alone. That is why the verdict also uses style and source
+signals, why the thresholds are conservative, and why the report always shows its reasons.
+It is a **screening aid, not a fact-checker**.
 
 ## Tech stack
 
@@ -59,6 +184,7 @@ and the frontend, with SQLite for metadata and Cloudinary for (encrypted) blobs.
 | Jobs | node-cron |
 | IDs | nanoid v3 (CommonJS-compatible) |
 | Config | dotenv |
+| NLP / ML | `compromise` (offline NER) + own code: text extraction, Porter stemmer, TF-IDF, logistic regression, Naive Bayes, source analysis, chatbot |
 | Tests | Node's built-in `node:test` + `assert` (no test framework dependency) |
 
 ---
@@ -85,7 +211,7 @@ Copy-Item .env.example .env ; notepad .env   # fill in the 3 CLOUDINARY_* values
 npm start
 ```
 
-Then open <http://localhost:3000>. If the port is busy you get a clear message; use
+Then open <http://localhost:3000> (the hub; each system has its own page). If the port is busy you get a clear message; use
 `$env:PORT=3001; npm start`.
 
 > If Cloudinary credentials are missing and `STORAGE` is not `mock`, the server prints
@@ -122,6 +248,8 @@ The size limit is defined in exactly one place: [`src/config.js`](src/config.js)
 | `MAX_FILE_SIZE_BYTES` | 10 MB (cloudinary) / 100 MB (mock) | Upload limit. Cloudinary's **free plan caps raw uploads at 10 MB**, hence the default |
 | `TRUST_PROXY` | `false` | Set to `1` behind exactly one reverse proxy (Caddy/nginx) so rate limiting sees real client IPs |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, `silent` |
+| `CAMPUSES` | `Main Campus,North Campus,South Campus,City Campus` | Comma-separated campus names for context-based sharing |
+| `DEPARTMENTS` | `CSE,IT,ECE,EEE,MECH,CIVIL,AI & DS` | Comma-separated departments for study-material distribution |
 | `NODE_ENV` | `development` | `production` in Docker. `test` (with `STORAGE=mock` only) enables test hooks |
 
 Generate a master key:
@@ -307,6 +435,11 @@ happens on `POST` (token in a hidden form field). The token is redacted from req
 | Malicious server operator | ❌ No | The server sees plaintext while streaming; there is no client-side encryption |
 | Malware distribution | ❌ No | No virus scanning |
 | Volumetric DoS | ⚠️ Partially | Rate and size limits only; no WAF / CDN in front |
+| Guessing a campus access key | ✅ Yes | ≈79-bit random keys, only SHA-256 stored, per-IP rate limit on key checks |
+| A key leaked to the wrong campus | ⚠️ Partially | The key also needs the matching campus, but campus is *selected*, not proven (no IP/GPS check) |
+| One key carrying two uploads / two downloads | ✅ Yes | Atomic key binding and the atomic one-download claim |
+| Fake document with a fake "reuters.com" source | ✅ Mitigated | Source URLs are self-reported, so P(fake) ≥ 0.9 caps the score at 40 and look-alike domains are caught |
+| Carefully written misinformation in sober style | ❌ No | The model scores wording and provenance, not facts; adversarial text can pass |
 
 ---
 
@@ -317,6 +450,8 @@ npm test                  # starts the real server (STORAGE=mock, NODE_ENV=test)
 npm run test:cloudinary   # MANUAL: live upload/download/delete round trip against Cloudinary (needs .env)
 npm run cloudinary:diagnose  # MANUAL: shows Cloudinary's exact answer if uploads fail (e.g. 403)
 npm run bench             # streaming benchmark (prints server peak memory)
+npm run train:model       # download the dataset (if needed) and retrain the fake-news model
+npm run eval:fusion       # evaluate the fused credibility score on the held-out test set
 node scripts/race-demo.js http://localhost:3000/f/<id>   # 6 parallel downloads of a live link
 ```
 
@@ -330,59 +465,50 @@ the delete flow (GET only confirms, wrong token rejected, POST deletes); tampere
 fails and rolls back the count; settings-after-file rejected; test hooks impossible outside
 test mode.
 
-Real output (Node 22.22.0, Linux sandbox; per-test durations trimmed for width; full
-version in [`docs/test-results.txt`](docs/test-results.txt)):
+**113 tests** in four files: `vshare.test.js` and `limits.test.js` (the self-destructing core,
+31 tests), `systems.test.js` (hub, campus keys, study distribution, fake-news-proof sharing,
+chatbot API, DB migration; 30 tests) and `nlp.test.js` (stemmer, NER, source checks, text
+extraction incl. a real Chrome-generated PDF with embedded fonts, classifier, fusion rules,
+chatbot intents; 52 tests).
+
+Real output (Node 22.22.0, Linux sandbox; durations trimmed; full output in
+[`docs/test-results.txt`](docs/test-results.txt)):
 
 ```text
-▶ oversize uploads (TEST_MAX_FILE_SIZE_BYTES = 1 MB)
-  ✔ reports the limit via /api/config
-  ✔ accepts a file exactly at the limit
-  ✔ rejects an oversize upload with Content-Length (413, nothing stored)
-  ✔ rejects an oversize CHUNKED upload mid-stream and deletes the partial object
-▶ test hooks cannot be enabled outside NODE_ENV=test + STORAGE=mock
-  ✔ ignores TEST_MAX_FILE_SIZE_BYTES
-  ✔ rejects expiry_seconds
-  ✔ has no cleanup endpoint
-▶ basics
-  ✔ GET /healthz returns ok and nothing sensitive
-  ✔ serves the upload page with a strict CSP (no inline scripts/styles)
-▶ upload and download round trips (byte-for-byte SHA-256)
-  ✔ report.pdf (596 bytes)
-  ✔ slides.pptx (263221 bytes)
-  ✔ essay.docx (917 bytes)
-  ✔ bundle.zip (100240 bytes)
-  ✔ picture.png (32328 bytes)
-  ✔ notes – ünïcödé.txt (43 bytes)
-  ✔ 20 MB file streams through intact
-▶ download limits
-  ✔ max 1 download: only the first download works, then 410 and the file is purged
-  ✔ max N downloads: exactly N succeed
+▶ context-based (campus-locked) sharing
+  ✔ rejects an unknown campus when generating a key
+  ✔ generates a one-time key for a campus (only its hash is stored)
+  ✔ refuses an upload whose campus does not match the key
+  ✔ refuses an upload without a generated key
+  ✔ faculty upload binds the file to the key
+  ✔ the same key cannot be used for a second upload
+  ✔ student check: wrong campus 403, unknown key 410, malformed key 400, right campus 200 (uses nothing up)
+  ✔ the file is NOT reachable through its public /f/:id link
+  ✔ wrong campus on the download form gives a friendly 403 page
+  ✔ student downloads with key + campus, byte-for-byte; the key then expires
+▶ study-material distribution
+  ✔ validates department, year, material type and subject
+  ✔ distributes a document and auto-tags it with TF-IDF keywords
+  ✔ binary files are distributed without keywords
+  ✔ other classes do not see it; the right class does
+  ✔ students download through the normal page, with class badges, any number of times
+▶ fake-news-proof sharing
+  ✔ credible content from a reputable source is shared, with a full report
+  ✔ trusted domains given by the uploader count as a good source
+  ✔ misinformation is rejected with a 422 report and nothing is kept
+  ✔ a file without readable text cannot be verified
+  ✔ enforces the 10 MB analysis limit
+▶ download limits (self-destructing core)
   ✔ 6 simultaneous downloads of a 1-download file: exactly one succeeds
-  ✔ opening the page, GET on the download URL and HEAD requests never count
   ✔ an interrupted download is rolled back and does not count
-▶ expiry and cleanup
-  ✔ a file expires after its time limit (410) and cleanup removes it from storage and DB
-  ✔ cleanup removes abandoned partial uploads (pending rows + partial objects)
-▶ passwords
-  ✔ correct password downloads; missing or wrong password re-renders the page with a message
-  ✔ 5 wrong attempts lock the file for 15 minutes; it is never deleted
-▶ delete link
-  ✔ GET only shows a confirmation; wrong tokens are rejected; POST deletes
-▶ integrity
-  ✔ tampered ciphertext fails the GCM check, the client never gets the full file, and the count is rolled back
-▶ upload validation
-  ✔ rejects settings sent after the file and leaves nothing behind
-  ✔ rejects invalid settings with JSON errors
-  ✔ sanitises path-traversal file names (metadata only)
-  ✔ unknown ids give 410, malformed ids 404, and errors never leak stack traces
-ℹ tests 31
-ℹ suites 10
-ℹ pass 31
+  … (see docs/test-results.txt for all 113)
+ℹ tests 113
+ℹ suites 23
+ℹ pass 113
 ℹ fail 0
-ℹ duration_ms 3622
 ```
 
-The same 31 tests also passed on **Node 18.20.8** and **Node 20.20.2** in the sandbox.
+All 113 tests also passed on **Node 18.20.8** and **Node 20.20.2** in the sandbox.
 The PDF/PNG/ZIP/DOCX/PPTX fixtures are generated in memory with correct signatures and
 container structure ([`test/fixtures.js`](test/fixtures.js)).
 
@@ -591,10 +717,27 @@ health checks would use `/healthz`.
   flight to a client that disconnects at the very last moment would count.
 - Time limits are fixed choices; "downloads only" (no time limit) is not offered, so every
   file has a maximum life of 7 days.
+- **Fake-news model scope:** trained on 2015-2016 English political news; weaker on other
+  topics and languages (see the caveat in the ML section). It estimates credibility from
+  wording and provenance; it does **not** check facts against the world.
+- **Source URLs are self-reported and never fetched** (by design: no SSRF, works offline), so
+  they are weak evidence; the hard rules above limit how much they can help.
+- **Verification keeps a plaintext copy in RAM** (max 10 MB) while analysing; never on disk.
+- **Campus check = key + selected campus**, not location: a student with the key could pick
+  the right campus from anywhere.
+- **NER** is lexicon/rule based (`compromise` + patterns): it misses some names, especially
+  non-Western ones without a title, and can mislabel capitalised words.
+- **PDF extraction** handles typical generated PDFs (incl. Chrome/Word embedded fonts) but not
+  scanned images (no OCR), encrypted PDFs, or exotic encodings.
 - The Docker image build and the AWS deployment were **not verified** (see above). Live
   Cloudinary was verified with `npm run test:cloudinary`.
 
 ## Future work
+
+- A transformer model (e.g. a fine-tuned DistilBERT via ONNX) and a more diverse, recent
+  dataset for fake-news detection; claim-level fact-checking against trusted sources.
+- Campus verification by network (IP ranges) or location; SSO login for faculty/students.
+- OCR for scanned documents.
 
 - **S3 storage adapter** (same three-method interface: `upload`, `download`, `delete`) with
   SSE-KMS, and presigned multipart uploads for large files.
@@ -613,52 +756,65 @@ vshare/
 ├── docs/
 │   ├── benchmark.txt             # real output of npm run bench
 │   ├── cloudinary-test-results.txt  # live Cloudinary round trip (passed)
-│   ├── test-results.txt          # real output of npm test
+│   ├── ml-metrics.json           # real model metrics (held-out test set)
+│   ├── ml-fusion-eval.txt        # fusion-weight evaluation (npm run eval:fusion)
+│   ├── test-results.txt          # real output of npm test (113 tests)
 │   └── screenshots/              # real screenshots taken in the sandbox (Chromium)
 ├── public/                       # frontend: no build step, no CDN
-│   ├── index.html                # upload page
+│   ├── index.html                # hub: the four systems
+│   ├── share.html                # self-destructing sharing
+│   ├── context.html              # campus-locked sharing (faculty + student)
+│   ├── study.html                # study-material distribution
+│   ├── verify.html               # fake-news-proof sharing + report
 │   ├── favicon.svg
 │   ├── css/style.css             # the only stylesheet (claymorphism design tokens)
 │   └── js/
-│       ├── upload.js             # drag & drop, XHR progress, copy buttons
-│       └── download.js           # live countdown
+│       ├── common.js             # shared helpers (XHR progress, copy, drop tray…)
+│       ├── upload.js  download.js
+│       ├── context.js  study.js  verify.js
+│       └── chat.js               # help chatbot widget (every page)
 ├── scripts/
 │   ├── start-mock.js             # npm run start:mock (offline, cross-platform)
+│   ├── train-fake-news.js        # npm run train:model (downloads dataset, trains, writes metrics)
+│   ├── eval-fusion.js            # npm run eval:fusion
 │   ├── test-cloudinary.js        # npm run test:cloudinary (manual live test)
 │   ├── cloudinary-diagnose.js    # npm run cloudinary:diagnose (explains upload failures)
 │   ├── bench-stream.js           # npm run bench (streaming/memory benchmark)
 │   └── race-demo.js              # fire N parallel downloads at a share link (demo)
 ├── src/
 │   ├── server.js                 # entry: startup checks, cron, graceful shutdown
-│   ├── app.js                    # Express app: helmet/CSP, rate limits, routes, error handler
-│   ├── config.js                 # ALL configuration (incl. MAX_FILE_SIZE_BYTES)
+│   ├── app.js                    # Express app: helmet/CSP, rate limits, routes, chatbot API
+│   ├── config.js                 # ALL configuration (sizes, campuses, departments, limits)
 │   ├── crypto.js                 # envelope encryption, streaming GCM, scrypt, tokens
-│   ├── db.js                     # SQLite schema + atomic statements
+│   ├── db.js                     # SQLite schema, migrations, atomic statements
+│   ├── download.js               # shared decrypt-and-stream with rollback
 │   ├── files.js                  # purge, in-flight tracking, cleanup sweep
-│   ├── http.js                   # content negotiation, errors, filenames, Content-Disposition
-│   ├── logger.js                 # levelled logger with URL redaction
-│   ├── views.js                  # server-rendered pages (escaped, no inline JS/CSS)
+│   ├── http.js  logger.js  views.js
+│   ├── nlp/
+│   │   ├── text.js               # text mining: normalise, sentences, Porter stemmer, n-grams, style
+│   │   ├── ner.js                # named-entity recognition
+│   │   ├── extract.js            # text from PDF / DOCX / PPTX / HTML / TXT
+│   │   ├── classifier.js         # TF-IDF, logistic regression, Naive Bayes, metrics
+│   │   ├── source.js             # source-URL credibility
+│   │   ├── analyze.js            # fusion → credibility, verdict, reasons, keywords, summary
+│   │   ├── chatbot.js            # intent-matching help bot
+│   │   └── fake-news-model.json  # trained model (788 KB)
 │   ├── routes/
-│   │   ├── upload.js             # POST /api/upload (busboy → meter → cipher → storage)
-│   │   └── files.js              # /f/:id page, download, delete
-│   └── storage/
-│       ├── index.js              # adapter factory + credential checks
-│       ├── cloudinary.js         # raw + authenticated, upload_stream, signed download
-│       ├── mock.js               # local folder (STORAGE=mock)
-│       └── id.js                 # object-id validation (no path traversal)
+│   │   ├── upload.js             # generic encrypted streaming upload (per-system profiles)
+│   │   ├── files.js              # /f/:id page, download, delete
+│   │   ├── context.js            # campus keys, upload, check, download
+│   │   ├── study.js              # distribute + list materials
+│   │   └── verify.js             # analyse, then share or reject
+│   └── storage/  index.js  cloudinary.js  mock.js  id.js
 ├── test/
-│   ├── vshare.test.js            # end-to-end tests against the real server
-│   ├── limits.test.js            # size limits + test-hook isolation
-│   ├── helpers.js                # spawn server, HTTP helpers, DB/storage inspection
-│   └── fixtures.js               # in-memory PDF/PNG/ZIP/DOCX/PPTX/TXT generators
-├── .env.example
-├── .dockerignore
-├── Dockerfile
-├── docker-compose.yml
-├── DEMO_SCRIPT.md
-├── RESUME.md
-├── package.json
-└── README.md
+│   ├── vshare.test.js  limits.test.js   # self-destructing core
+│   ├── systems.test.js           # hub, campus, study, verify, chatbot, migration
+│   ├── nlp.test.js               # NLP / ML unit tests
+│   ├── helpers.js  fixtures.js
+│   └── fixtures/                 # sample articles + a Chrome-generated PDF
+├── .env.example  .dockerignore  Dockerfile  docker-compose.yml
+├── DEMO_SCRIPT.md  RESUME.md  README.md
+└── package.json  package-lock.json
 ```
 
 ## Screenshots
@@ -674,6 +830,14 @@ Real screenshots taken in the sandbox with headless Chromium (mock storage):
 | ![Locked](docs/screenshots/05-locked.png) | ![Delete](docs/screenshots/06-delete-confirm.png) | ![Gone](docs/screenshots/07-self-destructed.png) |
 
 Mobile (360 px): ![Mobile](docs/screenshots/08-mobile-360.png)
+
+| Hub | Help chatbot | Campus: wrong campus refused |
+|---|---|---|
+| ![Hub](docs/screenshots/09-hub.png) | ![Chatbot](docs/screenshots/10-chatbot.png) | ![Wrong campus](docs/screenshots/12-campus-wrong-campus.png) |
+
+| Study materials | Verified file's download page | Campus page on a phone |
+|---|---|---|
+| ![Study](docs/screenshots/13-study.png) | ![Verified page](docs/screenshots/16-verified-download-page.png) | ![Mobile campus](docs/screenshots/17-mobile-campus.png) |
 
 ### Your deployment (placeholders: replace with your own)
 

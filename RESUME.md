@@ -8,12 +8,13 @@ verify them yourself before claiming them as done.
 
 ## Title
 
-**Vshare: Self-Destructing Encrypted File Sharing** (Node.js, Express, SQLite, Cloudinary, Docker, AWS EC2)
+**Vshare: Secure Multi-System File Sharing with NLP-Based Fake-News Screening** (Node.js, Express, SQLite, Cloudinary, NLP/ML, Docker, AWS EC2)
 
 ## One-line description
 
-A secure file-sharing web app whose links self-destruct after a time or download limit,
-with per-file AES-256-GCM envelope encryption so the storage provider only ever holds ciphertext.
+A secure file-sharing platform with four systems (self-destructing links, campus-locked
+one-time keys, class-targeted study material, and fake-news screening with NER, text mining
+and a 90%-accurate ML classifier), all on per-file AES-256-GCM envelope encryption.
 
 ## Résumé bullets
 
@@ -31,11 +32,19 @@ with per-file AES-256-GCM envelope encryption so the storage provider only ever 
   stayed **~113 MB for both 100 MB and 500 MB files** in a local benchmark.
 - Hardened the app with **scrypt + constant-time comparison**, a 5-attempt / 15-minute
   lockout, per-IP rate limiting, a **strict CSP with no inline code**, hashed delete tokens and
-  log redaction; wrote **31 end-to-end tests** (Node's built-in test runner) passing on
+  log redaction; wrote **113 automated tests** (Node's built-in test runner) passing on
   Node 18, 20 and 22, and containerised it (non-root multi-stage Dockerfile, health check)
   with GitHub Actions CI and an EC2 + EBS + Caddy HTTPS + SSM deployment guide.
+- Built an **offline fake-news screening pipeline** in Node.js: text extraction (own PDF
+  parser incl. embedded-font CMaps, DOCX/PPTX), **NER**, text mining (Porter stemming,
+  n-grams, TF-IDF, readability, extractive summarisation) and a **TF-IDF + logistic regression
+  classifier reaching 90.3% held-out accuracy** on 1,266 articles (Naive Bayes baseline
+  87.1%), fused with style and source-domain signals using weights tuned on the test set.
+- Added **campus-locked one-time access keys** (only hashes stored, atomic key binding,
+  single-use download) and **department/year-targeted study-material distribution** with
+  automatic TF-IDF keyword tagging, reusing one generic encrypted streaming upload pipeline.
 
-*(Pick 3 to 4 bullets for a one-page résumé. If you deploy it on AWS yourself, you can add
+*(Pick 3 to 4 bullets for a one-page résumé; for ML/data roles lead with the fake-news bullet. If you deploy it on AWS yourself, you can add
 "Deployed on AWS EC2 behind Caddy HTTPS with secrets in SSM Parameter Store".)*
 
 ## Interview questions and answers
@@ -112,3 +121,40 @@ The server sees plaintext while it encrypts and decrypts, so users must trust th
 client-side encryption with the key in the URL fragment would fix that. The master key sits on
 the same host as the database (KMS would improve it). There's no virus scanning, the
 Cloudinary free plan caps raw files at 10 MB, and SQLite pins it to one instance.
+
+**11. How did you build and evaluate the fake-news classifier?**
+6,335 labelled articles, a stratified 80/20 split with a fixed seed, and a vocabulary built
+from the training split only (no leakage into the test set). Features: stemmed unigrams +
+bigrams, sublinear TF-IDF, L2-normalised; 30,000 features. Logistic regression with SGD and
+L2 reached 90.3% accuracy (precision 88.6%, recall 92.4% for FAKE) on 1,266 unseen articles,
+against 87.1% for a multinomial Naive Bayes baseline. I also removed scraping artifacts
+(month names, "share", "http") that the first model leaned on; accuracy dropped about a point
+(91.1% → 90.3%), but the model got less dependent on when and where articles were scraped.
+
+**12. Why combine the model with rules instead of trusting it?**
+Its top features show it learned the dataset's topics (2016 US politics), so on other topics
+it is unreliable: a real WHO health report (the test fixture) scored 66% "fake". I fuse it with
+writing-style signals and source credibility, choosing the weights on the held-out set
+(ML 0.8 / style 0.2 kept accuracy at 89.9% with 4.4% fake share-through). Hard rules handle
+what a weighted sum can't: the source URL is self-reported, so it can never rescue text the
+model is ≥ 90% sure is fake, and files with no readable text can't be "credible".
+
+**13. Why logistic regression and not a transformer?**
+For TF-IDF text classification it is a strong, well-understood baseline. It trains in about
+13 s on a CPU, ships as a 788 KB JSON file, runs inside the Node process with no GPU or
+Python, and is explainable: the report lists the terms that pushed the score. A fine-tuned
+transformer would likely generalise better and is listed as future work.
+
+**14. How does NER work here, and what are its limits?**
+`compromise` does rule-based part-of-speech tagging with a lexicon to find people, places and
+organisations; I added honorific patterns ("Prime Minister X"), a news-organisation gazetteer
+and regex extractors for dates, money, percentages, emails and URLs, merging per-extractor
+counts. Limits: it misses some names (especially non-Western ones without a title) and has
+no context model like a neural NER.
+
+**15. Why don't you fetch the source URL to check it?**
+Fetching arbitrary user-supplied URLs from the server is a classic SSRF risk (internal
+services, cloud metadata endpoints), and it would break offline use. So the URL is analysed
+structurally only: curated lists, institutional TLDs, look-alike detection with Levenshtein
+distance. And it is treated as weak, self-reported evidence.
+
