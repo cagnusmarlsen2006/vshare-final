@@ -85,6 +85,16 @@ function createSizeMeter(limit) {
   return meter;
 }
 
+/** Read (and discard) at most `max` more bytes so the client can see our error, then hang up. */
+function drainThenClose(req, max = 8 * 1024 * 1024) {
+  let drained = 0;
+  req.on('data', (chunk) => {
+    drained += chunk.length;
+    if (drained > max) req.destroy();
+  });
+  req.resume();
+}
+
 function createUploadHandler({ config, repo, files, storage, masterKey }) {
   const limit = config.MAX_FILE_SIZE_BYTES;
   const tooLargeMessage = `File is too large. The maximum size is ${humanSize(limit)}.`;
@@ -100,7 +110,7 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
     if (Number.isFinite(declared) && declared > limit + MULTIPART_OVERHEAD) {
       res.set('Connection', 'close');
       sendError(req, res, 413, tooLargeMessage);
-      req.resume();
+      drainThenClose(req);
       return;
     }
 
@@ -172,13 +182,7 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
         res.set('Connection', 'close');
         sendError(req, res, status, message);
       }
-      // Drain (bounded) so the client can read our response, then hang up.
-      let drained = 0;
-      req.on('data', (chunk) => {
-        drained += chunk.length;
-        if (drained > 8 * 1024 * 1024) req.destroy();
-      });
-      req.resume();
+      drainThenClose(req);
     }
 
     req.on('close', () => {

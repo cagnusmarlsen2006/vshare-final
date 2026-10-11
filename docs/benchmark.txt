@@ -1,0 +1,8 @@
+server idle:        rss 73.1 MB, peak 73.5 MB
+upload 100 MB:    0.35 s   server rss 112.5 MB, peak 112.5 MB
+download 100 MB:  0.28 s   server rss 114.0 MB, peak 114.0 MB
+bytes 104857600, SHA-256 match: true
+server idle:        rss 72.4 MB, peak 73.0 MB
+upload 500 MB:    2.14 s   server rss 112.3 MB, peak 112.4 MB
+download 500 MB:  1.47 s   server rss 105.0 MB, peak 112.9 MB
+bytes 524288000, SHA-256 match: true

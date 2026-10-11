@@ -20,10 +20,18 @@ function createLimiter(limit, windowMs) {
   });
 }
 
+/** TRUST_PROXY: "1" (hop count), "loopback", an IP/CIDR list, "true" or "false". */
+function parseTrustProxy(value) {
+  if (value === false || value === undefined || value === '' || value === 'false') return false;
+  if (value === 'true') return true;
+  if (/^\d+$/.test(value)) return Number(value);
+  return value;
+}
+
 function createApp({ config, db, repo, files, storage, masterKey }) {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', config.TRUST_PROXY === false ? false : (/^\d+$/.test(config.TRUST_PROXY) ? Number(config.TRUST_PROXY) : config.TRUST_PROXY));
+  app.set('trust proxy', parseTrustProxy(config.TRUST_PROXY));
 
   // Request log with sensitive query values (delete tokens) redacted.
   app.use((req, res, next) => {
