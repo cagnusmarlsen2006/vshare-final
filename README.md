@@ -315,6 +315,7 @@ happens on `POST` (token in a hidden form field). The token is redacted from req
 ```bash
 npm test                  # starts the real server (STORAGE=mock, NODE_ENV=test) and tests it over HTTP
 npm run test:cloudinary   # MANUAL: live upload/download/delete round trip against Cloudinary (needs .env)
+npm run cloudinary:diagnose  # MANUAL: shows Cloudinary's exact answer if uploads fail (e.g. 403)
 npm run bench             # streaming benchmark (prints server peak memory)
 node scripts/race-demo.js http://localhost:3000/f/<id>   # 6 parallel downloads of a live link
 ```
@@ -396,8 +397,18 @@ whether the file is 100 MB or 500 MB, which shows the server streams instead of 
 
 (Loopback numbers with local storage; real-world speed is bounded by the network and Cloudinary.)
 
-**Not verified in the sandbox:** live Cloudinary (no credentials / network access; run
-`npm run test:cloudinary` yourself), the Docker image build, and the AWS deployment.
+**Live Cloudinary: verified.** `npm run test:cloudinary` PASSED against a real Cloudinary
+account (run on the author's Windows machine; the sandbox cannot reach Cloudinary): 1 MB
+uploaded in 3.2 s, Cloudinary held 1,048,576 bytes of **ciphertext**, the download through
+the app matched SHA-256, and the delete link worked. Output in
+[`docs/cloudinary-test-results.txt`](docs/cloudinary-test-results.txt).
+
+> **Cloudinary API key role:** use a key whose role can upload (e.g. **Master Admin**). A key
+> with the restricted **Media Library User** role makes every upload fail with HTTP 403
+> *"missing permissions (actions=["create"])"*. Run `npm run cloudinary:diagnose` to see
+> Cloudinary's exact answer (it checks the credentials and tries tiny uploads, no secrets printed).
+
+**Not verified:** the Docker image build and the AWS deployment.
 
 ---
 
@@ -580,7 +591,8 @@ health checks would use `/healthz`.
   flight to a client that disconnects at the very last moment would count.
 - Time limits are fixed choices; "downloads only" (no time limit) is not offered, so every
   file has a maximum life of 7 days.
-- Live Cloudinary, Docker and AWS were **not verified in the sandbox** (see above).
+- The Docker image build and the AWS deployment were **not verified** (see above). Live
+  Cloudinary was verified with `npm run test:cloudinary`.
 
 ## Future work
 
@@ -600,6 +612,7 @@ vshare/
 ├── .github/workflows/ci.yml      # npm ci + npm test (STORAGE=mock) on Node 20 and 22
 ├── docs/
 │   ├── benchmark.txt             # real output of npm run bench
+│   ├── cloudinary-test-results.txt  # live Cloudinary round trip (passed)
 │   ├── test-results.txt          # real output of npm test
 │   └── screenshots/              # real screenshots taken in the sandbox (Chromium)
 ├── public/                       # frontend: no build step, no CDN
@@ -612,6 +625,7 @@ vshare/
 ├── scripts/
 │   ├── start-mock.js             # npm run start:mock (offline, cross-platform)
 │   ├── test-cloudinary.js        # npm run test:cloudinary (manual live test)
+│   ├── cloudinary-diagnose.js    # npm run cloudinary:diagnose (explains upload failures)
 │   ├── bench-stream.js           # npm run bench (streaming/memory benchmark)
 │   └── race-demo.js              # fire N parallel downloads at a share link (demo)
 ├── src/

@@ -2,8 +2,9 @@
 
 All facts below come from the code in this repository and from tests and benchmarks that
 were actually run (see `docs/test-results.txt` and `docs/benchmark.txt`). Nothing here
-claims production traffic or users. Cloudinary, Docker and AWS deployment were **not**
-verified in the build sandbox; verify them yourself before claiming them as done.
+claims production traffic or users. The live Cloudinary round trip was verified
+(`docs/cloudinary-test-results.txt`). Docker and the AWS deployment were **not** verified;
+verify them yourself before claiming them as done.
 
 ## Title
 

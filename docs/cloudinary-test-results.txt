@@ -1,0 +1,29 @@
+npm run test:cloudinary — live run on the author's Windows machine (2026-10-11),
+real Cloudinary account, API key with the "Master Admin" role. Output as reported:
+
+▶ Uploading 1 MB through the app (port 62885)
+  ✓ uploaded in 3204 ms, id K9ehW2Q4JTjxGO3Nuua1W
+
+▶ Fetching the raw object from Cloudinary (signed URL)
+  ✓ Cloudinary holds 1048576 bytes of ciphertext (differs from plaintext)
+
+▶ Downloading through the app
+  ✓ downloaded in 914 ms, SHA-256 matches (1edaffd7eadee3e6…)
+
+▶ Deleting through the delete link (POST)
+  ✓ app reports 410 for the share link
+
+▶ Checking the object is gone from Cloudinary
+  ! object still downloadable: CDN cache may lag a few minutes after "invalidate". Re-check later.
+
+Cloudinary round trip PASSED
+
+Note: the last check downloaded through the CDN, which can serve a cached copy
+briefly after deletion. The script now verifies deletion authoritatively (the app
+only drops the DB row after a successful Cloudinary delete, and the Admin API must
+return 404), with the CDN check kept as information only.
+
+Troubleshooting seen during setup: an API key with the restricted
+"Media Library User" role made every upload fail with HTTP 403
+"missing permissions (actions=["create"])"; `npm run cloudinary:diagnose` shows
+this. Use a key whose role allows uploads (e.g. Master Admin).

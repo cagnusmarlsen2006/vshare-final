@@ -86,11 +86,26 @@ async function main() {
     ok('app reports 410 for the share link');
 
     step('Checking the object is gone from Cloudinary');
+    // The app only deletes the DB row after the storage delete succeeded.
+    if (srv.row(up.json.id)) throw new Error('DB row still present: the Cloudinary delete did not succeed');
+    ok('app removed the DB row (only happens after a successful Cloudinary delete)');
+    // Ask the Admin API (authoritative, no CDN cache) whether the asset still exists.
+    const cloudinary = require('cloudinary').v2;
+    const folder = (process.env.CLOUDINARY_FOLDER || 'vshare').replace(/[^A-Za-z0-9_/-]/g, '');
+    try {
+      await cloudinary.api.resource(`${folder ? `${folder}/` : ''}${storageId}`, { resource_type: 'raw', type: 'authenticated' });
+      throw new Error('Admin API still lists the asset after delete');
+    } catch (err) {
+      const code = (err.error && err.error.http_code) || err.http_code;
+      if (code !== 404) throw err.error ? new Error(err.error.message) : err;
+      ok('Admin API: asset not found (deleted)');
+    }
+    // CDN copies can linger briefly after invalidation; informational only.
     try {
       await readAll(await storage.download(storageId));
-      console.log('  ! object still downloadable: CDN cache may lag a few minutes after "invalidate". Re-check later.');
-    } catch (err) {
-      ok(`object no longer retrievable (${err.message})`);
+      console.log('  i CDN may still serve a cached copy for a few minutes (it expires; the asset itself is deleted).');
+    } catch {
+      ok('CDN no longer serves it either');
     }
     console.log('\nCloudinary round trip PASSED');
   } catch (err) {
