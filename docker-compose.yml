@@ -1,0 +1,22 @@
+# Usage:
+#   cp .env.example .env      # fill in Cloudinary credentials (and MASTER_KEY)
+#   docker compose up -d --build
+#   curl http://localhost:3000/healthz
+services:
+  vshare:
+    build: .
+    image: vshare:latest
+    init: true                 # proper PID 1: forwards SIGTERM for graceful shutdown
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+    volumes:
+      - vshare-data:/data      # SQLite database + .master.key survive restarts
+
+volumes:
+  vshare-data:

@@ -15,7 +15,7 @@ const Database = require('better-sqlite3');
 
 const ROOT = path.resolve(__dirname, '..');
 
-async function startServer(extraEnv = {}) {
+async function startServer(extraEnv = {}, { cwd } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vshare-test-'));
   const dataDir = path.join(dir, 'data');
   const storageDir = path.join(dir, 'storage');
@@ -32,7 +32,8 @@ async function startServer(extraEnv = {}) {
   };
   const proc = spawn(process.execPath, [path.join(ROOT, 'src', 'server.js')], {
     env,
-    cwd: dir, // no .env file here, so nothing leaks in from the developer machine
+    // By default run in an empty temp dir so a developer's .env never leaks in.
+    cwd: cwd || dir,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let stderr = '';

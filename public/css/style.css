@@ -267,7 +267,8 @@ select.clay-input {
 .button-row .clay-button { flex: 1 1 12rem; }
 
 .copy-button { flex: none; min-width: 5.5rem; }
-.copy-button.copied {
+.clay-button.copy-button.copied,
+.clay-button.copy-button.copied:hover {
   background: var(--c-mint); color: var(--c-text);
   animation: pop 420ms var(--ease-bounce);
 }

@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node src/server.js",
     "start:mock": "node scripts/start-mock.js",
-    "test": "node --test test/vshare.test.js test/limits.test.js",
+    "test": "node --test --test-reporter=spec test/vshare.test.js test/limits.test.js",
     "test:cloudinary": "node scripts/test-cloudinary.js"
   },
   "dependencies": {
