@@ -81,6 +81,7 @@ function createFileService({ repo, storage }) {
     } finally {
       sweeping = false;
     }
+    if (repo.pruneReservations) repo.pruneReservations(now);
     if (purged) log.info(`cleanup: purged ${purged} file(s)`);
     return purged;
   }

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Fake-news-proof sharing: NER, text mining and machine learning check a document's credibility before it is shared.">
+<meta name="referrer" content="no-referrer">
+<title>Fake-news-proof sharing · Vshare</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <a class="brand" href="/" aria-label="Vshare home"><span class="brand-mark" aria-hidden="true"></span>Vshare</a>
+  <nav class="site-nav" aria-label="Systems">
+    <a href="/share.html">Share</a><a href="/context.html">Campus</a><a href="/study.html">Study</a><a href="/verify.html" aria-current="page">Verify</a>
+  </nav>
+</header>
+
+<main id="main" class="container" tabindex="-1">
+  <section class="hero">
+    <p class="eyebrow eyebrow-mint">AI verification engine</p>
+    <h1>Share the truth, not the noise</h1>
+    <p class="lead">Upload a document and cite its source. NLP and machine learning check its credibility, and only verified content gets a share link.</p>
+  </section>
+
+  <section class="clay-card" id="v-card" aria-labelledby="v-title">
+    <h2 id="v-title" class="sr-only">Verify and share</h2>
+    <form id="v-form" class="stack" novalidate>
+      <label class="dropzone" id="v-drop" for="v-file">
+        <input class="sr-only" type="file" id="v-file" accept=".pdf,.docx,.pptx,.txt,.md,.html,.htm,.csv,.json">
+        <span class="dropzone-icon" aria-hidden="true"></span>
+        <span class="dropzone-title">Drop your document here</span>
+        <span class="dropzone-sub">or <span class="link-like">browse your device</span></span>
+        <span class="dropzone-hint" id="v-hint">PDF, DOCX, PPTX, TXT, HTML · up to 10 MB</span>
+        <span class="selected-file" id="v-selected" hidden></span>
+      </label>
+      <div class="field">
+        <label for="v-source">Source URL <span class="optional">(where the content comes from)</span></label>
+        <input class="clay-input" id="v-source" type="url" maxlength="2000" placeholder="https://www.example-news.com/article" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="v-trusted">Your trusted domains <span class="optional">(optional, comma separated)</span></label>
+        <input class="clay-input" id="v-trusted" type="text" maxlength="1000" placeholder="bbc.com, reuters.com, mycollege.edu.in" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="v-expiry">If verified, the share link self-destructs after</label>
+        <select class="clay-input" id="v-expiry">
+          <option value="1h">1 hour</option><option value="1d">1 day</option><option value="7d" selected>7 days</option>
+        </select>
+      </div>
+      <div class="progress" id="v-progress" hidden>
+        <div class="progress-track" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill"></div></div>
+        <p class="progress-label">Uploading… 0%</p>
+      </div>
+      <div id="v-status" aria-live="polite"></div>
+      <button class="clay-button primary big" type="submit" id="v-submit">Verify &amp; share</button>
+    </form>
+    <ul class="fineprint inline">
+      <li>Encrypted end-to-server</li><li>Rejected files are deleted</li><li>Offline AI: no data leaves this server</li>
+    </ul>
+  </section>
+
+  <section class="clay-card report" id="report" hidden tabindex="-1" aria-labelledby="r-title">
+    <div class="verdict" id="r-verdict">
+      <div class="score-ring"><span id="r-score">0</span><small>/100</small></div>
+      <div>
+        <h2 id="r-title">Verdict</h2>
+        <p id="r-verdict-text" class="verdict-text"></p>
+      </div>
+    </div>
+    <div class="meter" aria-hidden="true"><div class="meter-fill" id="r-meter"></div><span class="meter-mark meter-mark-uncertain"></span><span class="meter-mark meter-mark-credible"></span></div>
+    <p class="hint">Shared only at 65+ · uncertain 45–64 · likely fake below 45</p>
+
+    <div id="r-share" class="result-box" hidden>
+      <p><strong>Verified and shared.</strong> Send this link:</p>
+      <div class="copy-row">
+        <input class="clay-input" id="r-link" type="text" readonly aria-label="Share link">
+        <button class="clay-button primary copy-button" type="button" data-copy-target="r-link">Copy</button>
+      </div>
+      <div class="field">
+        <label for="r-delete">Private delete link</label>
+        <div class="copy-row">
+          <input class="clay-input" id="r-delete" type="text" readonly>
+          <button class="clay-button copy-button" type="button" data-copy-target="r-delete">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <h3>Why</h3>
+    <ul id="r-reasons" class="reasons"></ul>
+
+    <div class="report-grid">
+      <div class="report-box">
+        <h3>Machine learning</h3>
+        <p id="r-ml"></p>
+        <ul id="r-terms" class="term-list"></ul>
+      </div>
+      <div class="report-box">
+        <h3>Writing style</h3>
+        <dl id="r-style" class="stats"></dl>
+      </div>
+      <div class="report-box">
+        <h3>Source</h3>
+        <p id="r-source"></p>
+      </div>
+      <div class="report-box">
+        <h3>Text mining</h3>
+        <p><strong>Keywords (TF-IDF):</strong> <span id="r-keywords"></span></p>
+        <p><strong>Summary:</strong></p>
+        <blockquote id="r-summary"></blockquote>
+      </div>
+    </div>
+
+    <h3>Named entities (NER)</h3>
+    <div id="r-entities" class="entity-groups"></div>
+    <p class="hint" id="r-model"></p>
+    <button class="clay-button" type="button" id="r-again">Verify another document</button>
+  </section>
+  <div id="copy-live" class="sr-only" aria-live="polite"></div>
+</main>
+
+<footer class="site-footer"><p>Credibility is an estimate from NLP signals, not a fact-check by a human.</p></footer>
+<script src="/js/common.js" defer></script>
+<script src="/js/verify.js" defer></script>
+<script src="/js/chat.js" defer></script>
+</body>
+</html>

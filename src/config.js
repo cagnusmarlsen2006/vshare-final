@@ -47,6 +47,14 @@ function resolveMaxFileSize() {
   return intFromEnv('MAX_FILE_SIZE_BYTES', def, { min: 1, max: 5 * 1024 * MB });
 }
 
+/** Comma-separated list from the environment, e.g. CAMPUSES="Main Campus,North Campus". */
+function listFromEnv(name, fallback) {
+  const raw = env[name];
+  if (!raw) return fallback;
+  const list = raw.split(',').map((x) => x.trim()).filter(Boolean).map((x) => x.slice(0, 60));
+  return list.length ? [...new Set(list)] : fallback;
+}
+
 const DATA_DIR = path.resolve(ROOT, env.DATA_DIR || 'data');
 
 const config = Object.freeze({
@@ -90,6 +98,25 @@ const config = Object.freeze({
   // Test hook: expiry_seconds range.
   TEST_EXPIRY_SECONDS_MAX: 3600,
 
+  // Context-based sharing (campus-locked one-time keys).
+  CAMPUSES: Object.freeze(listFromEnv('CAMPUSES', ['Main Campus', 'North Campus', 'South Campus', 'City Campus'])),
+  ACCESS_KEY_TTL_MS: 60 * 60 * 1000, // an unused generated key expires after 1 hour
+  DEFAULT_CONTEXT_EXPIRY: '7d',
+
+  // Study-material distribution.
+  DEPARTMENTS: Object.freeze(listFromEnv('DEPARTMENTS', ['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AI & DS'])),
+  YEARS: Object.freeze(['1', '2', '3', '4']),
+  MATERIAL_TYPES: Object.freeze(['Notes', 'Question Bank', 'Assignment', 'Syllabus', 'Reference']),
+  STUDY_EXPIRY_OPTIONS: Object.freeze({
+    '30d': 30 * 24 * 60 * 60 * 1000,
+    '90d': 90 * 24 * 60 * 60 * 1000,
+    '180d': 180 * 24 * 60 * 60 * 1000,
+  }),
+  DEFAULT_STUDY_EXPIRY: '90d',
+
+  // Fake-news-proof sharing: the file is analysed in memory, so it is capped.
+  VERIFY_MAX_BYTES: Math.min(10 * MB, resolveMaxFileSize()),
+
   // Passwords.
   PASSWORD_MAX_LENGTH: 256,
   MAX_FAILED_ATTEMPTS: 5,
@@ -100,8 +127,8 @@ const config = Object.freeze({
 
   // Rate limits (per IP, per window). Relaxed under NODE_ENV=test.
   RATE_LIMITS: NODE_ENV === 'test'
-    ? { windowMs: 60 * 1000, global: 100000, upload: 100000, download: 100000, remove: 100000 }
-    : { windowMs: 15 * 60 * 1000, global: 1000, upload: 30, download: 60, remove: 30 },
+    ? { windowMs: 60 * 1000, global: 100000, upload: 100000, download: 100000, remove: 100000, access: 100000, chat: 100000 }
+    : { windowMs: 15 * 60 * 1000, global: 1000, upload: 30, download: 60, remove: 30, access: 30, chat: 120 },
 
   SHUTDOWN_TIMEOUT_MS: 10000,
 });

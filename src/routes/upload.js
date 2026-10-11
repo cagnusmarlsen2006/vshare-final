@@ -1,11 +1,23 @@
 'use strict';
 
 /**
- * POST /api/upload  (multipart/form-data, JSON response)
+ * Generic encrypted streaming upload handler (multipart/form-data, JSON response).
  *
- * Streaming pipeline:  busboy file stream -> size meter -> AES-256-GCM cipher -> storage
- * Plaintext never touches the disk. Settings fields (expiry, max_downloads,
- * password) must arrive BEFORE the file part, otherwise the upload is rejected.
+ * Streaming pipeline:  busboy file stream -> size meter [-> text capture] -> AES-256-GCM cipher -> storage
+ * Plaintext never touches the disk. Settings fields must arrive BEFORE the file
+ * part, otherwise the upload is rejected.
+ *
+ * Each sharing system plugs in a "profile":
+ *   fields      Set of allowed settings field names
+ *   limit       max file size in bytes (defaults to MAX_FILE_SIZE_BYTES)
+ *   parse(f)    validate fields -> { expiryMs, maxDownloads, password, kind, meta, accessKeyHash }
+ *               (throws UploadError)
+ *   captureText true / fn(fileName) -> keep an in-memory plaintext copy for analysis
+ *   captureMax  max bytes of that copy (default: limit); larger files are not captured
+ *   finalize(ctx) optional async step after storage, before activation:
+ *               returns { meta } or { reject: { status, body } } (the upload is then discarded)
+ *   respond(ctx) JSON body of the 201 response
+ * POST /api/upload uses the default "share" profile (self-destructing links).
  */
 const busboy = require('busboy');
 const { Transform, pipeline } = require('stream');
@@ -117,10 +129,52 @@ function replyAfterDrain(req, reply, { maxBytes = 8 * 1024 * 1024, maxMs = 10000
   req.resume();
 }
 
-function createUploadHandler({ config, repo, files, storage, masterKey }) {
-  const limit = config.MAX_FILE_SIZE_BYTES;
+/** Default profile: self-destructing share links (POST /api/upload). */
+function shareProfile(config) {
+  return {
+    fields: SETTINGS_FIELDS,
+    parse: (fields) => ({ ...parseSettings(fields, config), kind: 'share' }),
+    respond: ({ id, name, size, expiresAt, settings, passwordHash, deleteToken }) => ({
+      id,
+      name,
+      size,
+      expiresAt,
+      maxDownloads: settings.maxDownloads,
+      passwordProtected: Boolean(passwordHash),
+      sharePath: `/f/${id}`,
+      deletePath: `/f/${id}/delete?token=${deleteToken}`,
+    }),
+  };
+}
+
+/**
+ * Pass-through transform that keeps an in-memory copy of the plaintext for
+ * analysis, up to `max` bytes. Beyond that the copy is dropped (truncated).
+ */
+function createCapture(max) {
+  let chunks = [];
+  let total = 0;
+  const t = new Transform({
+    transform(chunk, _enc, cb) {
+      if (!t.truncated) {
+        total += chunk.length;
+        if (total > max) {
+          t.truncated = true;
+          chunks = [];
+        } else chunks.push(chunk);
+      }
+      cb(null, chunk);
+    },
+  });
+  t.truncated = false;
+  t.buffer = () => (t.truncated ? null : Buffer.concat(chunks));
+  return t;
+}
+
+function createUploadHandler({ config, repo, files, storage, masterKey }, profile = shareProfile(config)) {
+  const limit = profile.limit || config.MAX_FILE_SIZE_BYTES;
   const tooLargeMessage = `File is too large. The maximum size is ${humanSize(limit)}.`;
-  const allowedFields = config.TEST_HOOKS ? new Set([...SETTINGS_FIELDS, ...TEST_FIELDS]) : SETTINGS_FIELDS;
+  const allowedFields = config.TEST_HOOKS ? new Set([...profile.fields, ...TEST_FIELDS]) : profile.fields;
 
   return function uploadHandler(req, res) {
     const contentType = req.headers['content-type'] || '';
@@ -142,7 +196,7 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
       bb = busboy({
         headers: req.headers,
         defParamCharset: 'utf8', // browsers send UTF-8 file names
-        limits: { files: 1, fields: 8, parts: 10, fieldNameSize: 64, fieldSize: 1024 },
+        limits: { files: 1, fields: 10, parts: 12, fieldNameSize: 64, fieldSize: 2048 },
       });
     } catch {
       sendError(req, res, 400, 'Malformed multipart request.');
@@ -166,6 +220,7 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
     let mimeType = 'application/octet-stream';
     let uploadPromise = null;
     let pipelineDone = null;
+    let capture = null;
     let passwordHashPromise = Promise.resolve(null);
 
     /** Abort the upload, clean up partial storage + DB row, reply once. */
@@ -182,7 +237,7 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
       // Destroy every stage WITH an error so the storage upload is guaranteed
       // to reject (a bare destroy() of busboy's stream does not propagate).
       const abortErr = new UploadError(status, 'upload aborted');
-      for (const s of [fileStream, meter, cipher]) {
+      for (const s of [fileStream, meter, capture, cipher]) {
         if (s && !s.destroyed) s.destroy(abortErr);
       }
 
@@ -250,7 +305,7 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
       fileSeen = true;
 
       try {
-        settings = parseSettings(fields, config);
+        settings = profile.parse(fields);
       } catch (err) {
         fail(err.status || 400, err.message);
         return;
@@ -280,6 +335,8 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
           wrapped_key: wrappedKey,
           wrap_iv: wrapIv,
           data_iv: dataIv,
+          kind: settings.kind || 'share',
+          meta: settings.meta ? JSON.stringify(settings.meta) : null,
         });
       } catch (err) {
         fail(500, 'Could not start the upload.', err);
@@ -290,8 +347,17 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
 
       meter = createSizeMeter(limit);
       meter.on('error', ignore);
+      const stages = [stream, meter];
+      const wantsCapture = typeof profile.captureText === 'function'
+        ? profile.captureText(originalName) : Boolean(profile.captureText);
+      if (wantsCapture) {
+        capture = createCapture(profile.captureMax || limit);
+        capture.on('error', ignore);
+        stages.push(capture);
+      }
+      stages.push(cipher);
       pipelineDone = new Promise((resolve, reject) => {
-        pipeline(stream, meter, cipher, (err) => (err ? reject(err) : resolve()));
+        pipeline(...stages, (err) => (err ? reject(err) : resolve()));
       });
       pipelineDone.catch((err) => fail(err.status || 500, err.status ? err.message : 'Upload failed.', err));
       uploadPromise = storage.upload(cipher, { id: storageId });
@@ -315,31 +381,44 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
         return; // fail() already handled it
       }
       if (failed) return;
+      const ctx = {
+        id, settings, deleteToken, name: originalName, mimeType, size: meter.bytes,
+        captured: capture ? capture.buffer() : null,
+        captureTruncated: Boolean(capture && capture.truncated),
+      };
       try {
+        const outcome = profile.finalize ? (await profile.finalize(ctx)) || {} : {};
+        ctx.captured = null; // drop the plaintext copy as early as possible
+        if (outcome.reject) {
+          // The profile refused the file (e.g. failed verification): discard it completely.
+          failed = true;
+          try {
+            await storage.delete(storageId);
+            repo.deleteRow(id);
+          } catch (e) {
+            log.warn(`could not discard rejected upload: ${e.message}`);
+          }
+          files.endUpload(id);
+          res.status(outcome.reject.status).json(outcome.reject.body);
+          return;
+        }
         const passwordHash = await passwordHashPromise;
-        const now = Date.now();
-        const expiresAt = now + settings.expiryMs;
+        const expiresAt = Date.now() + settings.expiryMs;
+        const meta = outcome.meta !== undefined ? outcome.meta : settings.meta;
         const ok = repo.activate({
           id,
           size: meter.bytes,
           auth_tag: cipher.getAuthTag(),
           password_hash: passwordHash,
           expires_at: expiresAt,
+          meta: meta ? JSON.stringify(meta) : null,
+          access_key_hash: settings.accessKeyHash || null,
         });
         if (!ok) throw new Error('activation failed');
         files.endUpload(id);
-        res.status(201).json({
-          id,
-          name: originalName,
-          size: meter.bytes,
-          expiresAt,
-          maxDownloads: settings.maxDownloads,
-          passwordProtected: Boolean(passwordHash),
-          sharePath: `/f/${id}`,
-          deletePath: `/f/${id}/delete?token=${deleteToken}`,
-        });
+        res.status(201).json(profile.respond({ ...ctx, expiresAt, passwordHash, meta, outcome }));
       } catch (err) {
-        fail(500, 'Upload failed.', err);
+        fail(err.status || 500, err.status ? err.message : 'Upload failed.', err);
       }
     });
 
@@ -347,4 +426,4 @@ function createUploadHandler({ config, repo, files, storage, masterKey }) {
   };
 }
 
-module.exports = { createUploadHandler, parseSettings };
+module.exports = { createUploadHandler, parseSettings, UploadError, humanSize };

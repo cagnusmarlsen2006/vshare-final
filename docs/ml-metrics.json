@@ -1,0 +1,158 @@
+{
+  "dataset": "fake_or_real_news.csv (McIntire, 6,335 articles)",
+  "trainSize": 5063,
+  "testSize": 1266,
+  "features": 30000,
+  "seed": 42,
+  "logisticRegression": {
+    "n": 1266,
+    "accuracy": 0.9028,
+    "precisionFake": 0.8862,
+    "recallFake": 0.9241,
+    "f1Fake": 0.9047,
+    "confusion": {
+      "truePositiveFake": 584,
+      "trueNegativeReal": 559,
+      "falsePositiveFake": 75,
+      "falseNegativeFake": 48
+    }
+  },
+  "naiveBayesBaseline": {
+    "n": 1266,
+    "accuracy": 0.8712,
+    "precisionFake": 0.8705,
+    "recallFake": 0.8718,
+    "f1Fake": 0.8711,
+    "confusion": {
+      "truePositiveFake": 551,
+      "trueNegativeReal": 552,
+      "falsePositiveFake": 82,
+      "falseNegativeFake": 81
+    }
+  },
+  "topFakeIndicators": [
+    [
+      "hillari",
+      3.11
+    ],
+    [
+      "elect",
+      2.76
+    ],
+    [
+      "wikileak",
+      2.5
+    ],
+    [
+      "russia",
+      2.46
+    ],
+    [
+      "sourc",
+      2.28
+    ],
+    [
+      "fbi",
+      2.16
+    ],
+    [
+      "world",
+      1.96
+    ],
+    [
+      "corrupt",
+      1.95
+    ],
+    [
+      "podesta",
+      1.87
+    ],
+    [
+      "post",
+      1.82
+    ],
+    [
+      "video",
+      1.8
+    ],
+    [
+      "pleas",
+      1.72
+    ],
+    [
+      "russian",
+      1.66
+    ],
+    [
+      "war",
+      1.66
+    ],
+    [
+      "comei",
+      1.64
+    ]
+  ],
+  "topRealIndicators": [
+    [
+      "republican",
+      -3.71
+    ],
+    [
+      "obama",
+      -3.25
+    ],
+    [
+      "gop",
+      -3.24
+    ],
+    [
+      "cruz",
+      -2.7
+    ],
+    [
+      "conserv",
+      -2.55
+    ],
+    [
+      "senat",
+      -2.52
+    ],
+    [
+      "sander",
+      -2.47
+    ],
+    [
+      "sen",
+      -2.46
+    ],
+    [
+      "presid",
+      -2.32
+    ],
+    [
+      "candid",
+      -2.3
+    ],
+    [
+      "debat",
+      -2.28
+    ],
+    [
+      "percent",
+      -2.19
+    ],
+    [
+      "primari",
+      -2.18
+    ],
+    [
+      "told",
+      -2.11
+    ],
+    [
+      "nomin",
+      -2.08
+    ]
+  ],
+  "trainingSeconds": 13.4
+}

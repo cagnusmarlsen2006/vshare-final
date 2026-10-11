@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Campus-locked file sharing: faculty upload with a one-time access key, students download from the right campus.">
+<meta name="referrer" content="no-referrer">
+<title>Context-based sharing · Vshare</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <a class="brand" href="/" aria-label="Vshare home"><span class="brand-mark" aria-hidden="true"></span>Vshare</a>
+  <nav class="site-nav" aria-label="Systems">
+    <a href="/share.html">Share</a><a href="/context.html" aria-current="page">Campus</a><a href="/study.html">Study</a><a href="/verify.html">Verify</a>
+  </nav>
+</header>
+
+<main id="main" class="container wide" tabindex="-1">
+  <section class="hero">
+    <p class="eyebrow">Campus-locked distribution</p>
+    <h1>Context-Based File Sharing</h1>
+    <p class="lead">Faculty upload. Students access. Each key works only for its campus, and only once.</p>
+  </section>
+
+  <div class="split">
+    <!-- Faculty -->
+    <section class="clay-card panel" aria-labelledby="faculty-title">
+      <div class="panel-head">
+        <span class="panel-icon panel-icon-faculty" aria-hidden="true"></span>
+        <div><h2 id="faculty-title">Faculty</h2><p class="hint">Upload files &amp; share access keys</p></div>
+      </div>
+
+      <div class="field">
+        <label for="f-campus">Campus</label>
+        <select class="clay-input" id="f-campus"></select>
+      </div>
+      <p class="pill-info">Files locked to: <strong id="f-campus-label">…</strong></p>
+
+      <h3 class="step">Step 1 · Generate access key</h3>
+      <button class="clay-button primary" type="button" id="gen-key">Generate key</button>
+      <div class="field" id="key-box" hidden>
+        <label for="access-key">Access key for students (valid 1 hour until used)</label>
+        <div class="copy-row">
+          <input class="clay-input mono" id="access-key" type="text" readonly>
+          <button class="clay-button copy-button" type="button" data-copy-target="access-key">Copy</button>
+        </div>
+      </div>
+
+      <h3 class="step">Step 2 · Upload your file</h3>
+      <form id="f-form" class="stack" novalidate>
+        <label class="dropzone dropzone-small" id="f-drop" for="f-file">
+          <input class="sr-only" type="file" id="f-file">
+          <span class="dropzone-title">Drop a file or <span class="link-like">browse</span></span>
+          <span class="dropzone-hint" id="f-size-hint">Any file type.</span>
+          <span class="selected-file" id="f-selected" hidden></span>
+        </label>
+        <div class="field">
+          <label for="f-expiry">File expires after (if not downloaded)</label>
+          <select class="clay-input" id="f-expiry">
+            <option value="1h">1 hour</option><option value="1d">1 day</option><option value="7d" selected>7 days</option>
+          </select>
+        </div>
+        <div class="progress" id="f-progress" hidden>
+          <div class="progress-track" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill"></div></div>
+          <p class="progress-label">Uploading… 0%</p>
+        </div>
+        <div id="f-status" aria-live="polite"></div>
+        <button class="clay-button primary big" type="submit" id="f-upload">Upload file</button>
+      </form>
+      <div id="f-result" class="result-box" hidden tabindex="-1">
+        <p><strong>Uploaded!</strong> Give students this key. It works once, from <strong id="f-result-campus"></strong>.</p>
+        <div class="copy-row">
+          <input class="clay-input mono" id="f-result-key" type="text" readonly aria-label="Access key">
+          <button class="clay-button primary copy-button" type="button" data-copy-target="f-result-key">Copy</button>
+        </div>
+        <div class="field">
+          <label for="f-delete">Private delete link</label>
+          <div class="copy-row">
+            <input class="clay-input" id="f-delete" type="text" readonly>
+            <button class="clay-button copy-button" type="button" data-copy-target="f-delete">Copy</button>
+          </div>
+        </div>
+        <button class="clay-button" type="button" id="f-again">Share another file</button>
+      </div>
+    </section>
+
+    <!-- Student -->
+    <section class="clay-card panel" aria-labelledby="student-title">
+      <div class="panel-head">
+        <span class="panel-icon panel-icon-student" aria-hidden="true"></span>
+        <div><h2 id="student-title">Student</h2><p class="hint">Enter your key to access files</p></div>
+      </div>
+
+      <form id="s-form" class="stack" method="post" action="/context/download" novalidate>
+        <div class="field">
+          <label for="s-campus">Campus</label>
+          <select class="clay-input" id="s-campus" name="campus"></select>
+        </div>
+        <p class="pill-info">Accessing as: <strong id="s-campus-label">…</strong></p>
+        <div class="field">
+          <label for="s-key">Your access key</label>
+          <input class="clay-input mono" id="s-key" name="key" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="VS-XXXX-XXXX-XXXX-XXXX" maxlength="40" required>
+        </div>
+        <div id="s-status" aria-live="polite"></div>
+        <button class="clay-button primary big" type="submit" id="s-access">Access file</button>
+      </form>
+      <ul class="fineprint">
+        <li>The key expires after one download.</li>
+        <li>It only works from the campus it was created for.</li>
+      </ul>
+    </section>
+  </div>
+  <div id="copy-live" class="sr-only" aria-live="polite"></div>
+</main>
+
+<footer class="site-footer"><p>Files are encrypted with AES-256-GCM and self-destruct after use.</p></footer>
+<script src="/js/common.js" defer></script>
+<script src="/js/context.js" defer></script>
+<script src="/js/chat.js" defer></script>
+</body>
+</html>

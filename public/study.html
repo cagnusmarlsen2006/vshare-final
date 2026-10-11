@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Distribute study material to the right department and year. Upload once, students find it instantly.">
+<meta name="referrer" content="no-referrer">
+<title>Study material distribution · Vshare</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <a class="brand" href="/" aria-label="Vshare home"><span class="brand-mark" aria-hidden="true"></span>Vshare</a>
+  <nav class="site-nav" aria-label="Systems">
+    <a href="/share.html">Share</a><a href="/context.html">Campus</a><a href="/study.html" aria-current="page">Study</a><a href="/verify.html">Verify</a>
+  </nav>
+</header>
+
+<main id="main" class="container wide" tabindex="-1">
+  <section class="hero">
+    <p class="eyebrow eyebrow-peach">Academic material engine</p>
+    <h1>Study Material Distribution</h1>
+    <p class="lead">Upload once. Reach the right students instantly.</p>
+  </section>
+
+  <section class="clay-card" aria-labelledby="dist-title">
+    <h2 id="dist-title">Distribute material <span class="tag">Faculty</span></h2>
+    <form id="d-form" class="split split-tight" novalidate>
+      <fieldset class="stack plain">
+        <legend class="step">Target audience</legend>
+        <div class="settings">
+          <div class="field"><label for="d-dept">Department</label><select class="clay-input" id="d-dept"></select></div>
+          <div class="field"><label for="d-year">Year</label><select class="clay-input" id="d-year"></select></div>
+        </div>
+        <p class="pill-info pill-peach">Distributing to: <strong id="d-target">…</strong></p>
+        <div class="field">
+          <label for="d-subject">Subject</label>
+          <input class="clay-input" id="d-subject" type="text" maxlength="80" placeholder="e.g. Data Structures, Networks" required>
+        </div>
+        <div class="field">
+          <label for="d-expiry">Keep available for</label>
+          <select class="clay-input" id="d-expiry"></select>
+        </div>
+      </fieldset>
+
+      <fieldset class="stack plain">
+        <legend class="step">Material details</legend>
+        <div class="field">
+          <span class="label" id="d-type-label">Material type</span>
+          <div class="chip-group" role="radiogroup" aria-labelledby="d-type-label" id="d-types"></div>
+        </div>
+        <label class="dropzone dropzone-small" id="d-drop" for="d-file">
+          <input class="sr-only" type="file" id="d-file">
+          <span class="dropzone-title">Drop a file or <span class="link-like">browse</span></span>
+          <span class="dropzone-hint" id="d-size-hint">PDF, DOCX and PPTX are auto-tagged with keywords.</span>
+          <span class="selected-file" id="d-selected" hidden></span>
+        </label>
+        <div class="progress" id="d-progress" hidden>
+          <div class="progress-track" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill"></div></div>
+          <p class="progress-label">Uploading… 0%</p>
+        </div>
+        <div id="d-status" aria-live="polite"></div>
+        <button class="clay-button peach big" type="submit" id="d-submit">Distribute material</button>
+      </fieldset>
+    </form>
+  </section>
+
+  <section class="clay-card" aria-labelledby="find-title">
+    <h2 id="find-title">Find your materials <span class="tag tag-mint">Students</span></h2>
+    <form id="l-form" class="filter-row" novalidate>
+      <div class="field"><label for="l-dept">Department</label><select class="clay-input" id="l-dept"></select></div>
+      <div class="field"><label for="l-year">Year</label><select class="clay-input" id="l-year"></select></div>
+      <div class="field">
+        <label for="l-type">Type</label>
+        <select class="clay-input" id="l-type"><option value="">All types</option></select>
+      </div>
+      <button class="clay-button primary" type="submit">Show materials</button>
+    </form>
+    <div id="l-status" aria-live="polite"></div>
+    <ul class="material-list" id="l-list" aria-label="Materials"></ul>
+  </section>
+</main>
+
+<footer class="site-footer"><p>Materials are encrypted with AES-256-GCM and removed when their time is up.</p></footer>
+<script src="/js/common.js" defer></script>
+<script src="/js/study.js" defer></script>
+<script src="/js/chat.js" defer></script>
+</body>
+</html>

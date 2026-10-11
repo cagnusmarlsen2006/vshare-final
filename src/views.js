@@ -43,12 +43,15 @@ function layout({ title, body, scripts = [], bodyClass = '' }) {
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <a class="brand" href="/" aria-label="Vshare home"><span class="brand-mark" aria-hidden="true"></span>Vshare</a>
+  <nav class="site-nav" aria-label="Systems">
+    <a href="/share.html">Share</a><a href="/context.html">Campus</a><a href="/study.html">Study</a><a href="/verify.html">Verify</a>
+  </nav>
 </header>
 <main id="main" class="container" tabindex="-1">
 ${body}
 </main>
 <footer class="site-footer"><p>Files are encrypted with AES-256-GCM and destroy themselves.</p></footer>
-${scripts.map((s) => `<script src="${esc(s)}" defer></script>`).join('\n')}
+${[...scripts, '/js/chat.js'].map((s) => `<script src="${esc(s)}" defer></script>`).join('\n')}
 </body>
 </html>`;
 }
@@ -62,7 +65,7 @@ function alertBox(message, kind = 'error') {
  * Download page. Rendering it NEVER consumes a download.
  * @param {object} p
  */
-function downloadPage({ id, name, size, remaining, expiresAt, needsPassword, locked, message, messageKind }) {
+function downloadPage({ id, name, size, remaining, expiresAt, needsPassword, locked, message, messageKind, badges = [] }) {
   const remainingText = remaining === null
     ? 'No download limit'
     : `${remaining} download${remaining === 1 ? '' : 's'} left`;
@@ -79,6 +82,7 @@ function downloadPage({ id, name, size, remaining, expiresAt, needsPassword, loc
 <section class="clay-card download-card" aria-labelledby="file-name">
   <div class="file-icon" aria-hidden="true"></div>
   <h1 id="file-name" class="file-name">${esc(name)}</h1>
+  ${badges.length ? `<ul class="meta badges" aria-label="About this file">${badges.map((b) => `<li class="chip chip-info">${esc(b)}</li>`).join('')}</ul>` : ''}
   <ul class="meta" aria-label="File details">
     <li class="chip chip-mint">${esc(formatBytes(size))}</li>
     <li class="chip chip-peach" id="remaining">${esc(remainingText)}</li>
@@ -108,7 +112,7 @@ function gonePage() {
   </div>
   <h1 id="gone-title">This file has self-destructed</h1>
   <p>The link expired, its downloads were used up, or the owner deleted it. It is gone for good.</p>
-  <a class="clay-button primary" href="/">Share a new file</a>
+  <a class="clay-button primary" href="/share.html">Share a new file</a>
 </section>`,
   });
 }
@@ -156,7 +160,7 @@ function deletedPage() {
   </div>
   <h1 id="deleted-title">File destroyed</h1>
   <p>The file and its encryption key are gone. The share link now shows the self-destructed page.</p>
-  <a class="clay-button primary" href="/">Share a new file</a>
+  <a class="clay-button primary" href="/share.html">Share a new file</a>
 </section>`,
   });
 }

@@ -9,6 +9,10 @@ const log = require('./logger');
 const { sendError } = require('./http');
 const { createUploadHandler } = require('./routes/upload');
 const { createFileRouter } = require('./routes/files');
+const { createContextRouter } = require('./routes/context');
+const { createStudyRouter } = require('./routes/study');
+const { createVerifyRouter } = require('./routes/verify');
+const { createChatbot } = require('./nlp/chatbot');
 
 function createLimiter(limit, windowMs) {
   return rateLimit({
@@ -18,6 +22,15 @@ function createLimiter(limit, windowMs) {
     legacyHeaders: false,
     handler: (req, res) => sendError(req, res, 429, 'Too many requests. Please wait a few minutes and try again.', { title: 'Slow down' }),
   });
+}
+
+/** Model metrics for the chatbot's answers (null if the model file is missing). */
+function safeModelMetrics(config) {
+  try {
+    return JSON.parse(require('fs').readFileSync(path.join(config.ROOT, 'src', 'nlp', 'fake-news-model.json'), 'utf8')).metrics;
+  } catch {
+    return null;
+  }
 }
 
 /** TRUST_PROXY: "1" (hop count), "loopback", an IP/CIDR list, "true" or "false". */
@@ -69,6 +82,8 @@ function createApp({ config, db, repo, files, storage, masterKey }) {
     upload: createLimiter(config.RATE_LIMITS.upload, W),
     download: createLimiter(config.RATE_LIMITS.download, W),
     remove: createLimiter(config.RATE_LIMITS.remove, W),
+    access: createLimiter(config.RATE_LIMITS.access, W),
+    chat: createLimiter(config.RATE_LIMITS.chat, W),
   };
 
   // Health check: no secrets, no rate limit (Docker / load balancer probes).
@@ -89,10 +104,32 @@ function createApp({ config, db, repo, files, storage, masterKey }) {
       expiryOptions: Object.keys(config.EXPIRY_OPTIONS),
       defaultExpiry: config.DEFAULT_EXPIRY,
       maxDownloadsMax: config.MAX_DOWNLOADS_MAX,
+      campuses: config.CAMPUSES,
+      departments: config.DEPARTMENTS,
+      years: config.YEARS,
+      materialTypes: config.MATERIAL_TYPES,
+      studyExpiryOptions: Object.keys(config.STUDY_EXPIRY_OPTIONS),
+      defaultStudyExpiry: config.DEFAULT_STUDY_EXPIRY,
+      verifyMaxBytes: config.VERIFY_MAX_BYTES,
     });
   });
 
-  app.post('/api/upload', limiters.upload, createUploadHandler({ config, repo, files, storage, masterKey }));
+  const deps = { config, repo, files, storage, masterKey, limiters };
+  app.post('/api/upload', limiters.upload, createUploadHandler(deps));
+  app.use(createContextRouter(deps));
+  app.use(createStudyRouter(deps));
+  app.use(createVerifyRouter(deps));
+
+  // Offline help chatbot (intent classification, no external service, nothing stored).
+  const chatbot = createChatbot(config, safeModelMetrics(config));
+  app.post('/api/chat', limiters.chat, express.json({ limit: '2kb' }), (req, res) => {
+    const message = req.body && typeof req.body.message === 'string' ? req.body.message : '';
+    if (!message.trim()) {
+      res.status(400).json({ error: 'Type a question.' });
+      return;
+    }
+    res.set('Cache-Control', 'no-store').json(chatbot.respond(message));
+  });
 
   if (config.TEST_HOOKS) {
     // Only reachable when STORAGE=mock AND NODE_ENV=test.

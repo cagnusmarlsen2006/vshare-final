@@ -11,14 +11,10 @@
  *   POST /f/:id/delete     delete now (token in the POST body)
  */
 const express = require('express');
-const { pipeline } = require('stream');
-const log = require('../logger');
 const views = require('../views');
 const cryptoUtil = require('../crypto');
-const { PUBLIC_ID_RE, wantsJson, sendError, contentDisposition } = require('../http');
-
-// Never let a stored type turn a download into an active document.
-const RISKY_MIME_RE = /(html|xml|javascript|ecmascript|svg|x-sh|x-httpd)/i;
+const { PUBLIC_ID_RE, wantsJson, sendError } = require('../http');
+const { streamClaimedFile } = require('../download');
 
 function remainingDownloads(row) {
   return row.max_downloads === null ? null : Math.max(0, row.max_downloads - row.downloads);
@@ -30,6 +26,33 @@ function isAvailable(row, now) {
   if (row.expires_at <= now) return false;
   const remaining = remainingDownloads(row);
   return remaining === null || remaining > 0;
+}
+
+/**
+ * Downloadable through the public /f/:id link? Campus-locked (context) files are
+ * only reachable with their access key + campus, never by id.
+ */
+function isPublic(row, now) {
+  return isAvailable(row, now) && row.kind !== 'context';
+}
+
+/** Short labels shown on the download page for study / verified files. */
+function badgesFor(row) {
+  let meta = {};
+  try {
+    meta = row.meta ? JSON.parse(row.meta) : {};
+  } catch {
+    meta = {};
+  }
+  if (row.kind === 'study') {
+    return [`${meta.department} · Year ${meta.year}`, meta.materialType, meta.subject].filter(Boolean);
+  }
+  if (row.kind === 'verified') {
+    const out = [`✓ Verified · credibility ${meta.credibility}/100`];
+    if (meta.sourceDomain) out.push(`Source: ${meta.sourceDomain}`);
+    return out;
+  }
+  return [];
 }
 
 const isLocked = (row, now) => row.locked_until !== null && row.locked_until > now;
@@ -69,6 +92,7 @@ function createFileRouter({ config, repo, files, storage, masterKey, limiters })
       locked,
       message: extra.message || (locked ? lockMessage(row, now) : ''),
       messageKind: extra.messageKind || 'error',
+      badges: badgesFor(row),
     }));
   }
 
@@ -77,13 +101,13 @@ function createFileRouter({ config, repo, files, storage, masterKey, limiters })
   // Explicit HEAD handler: reports the status only. No body, no side effects.
   router.head('/f/:id', (req, res) => {
     const row = repo.get(req.params.id);
-    res.status(isAvailable(row, Date.now()) ? 200 : 410).type('html').end();
+    res.status(isPublic(row, Date.now()) ? 200 : 410).type('html').end();
   });
 
   router.get('/f/:id', (req, res) => {
     const now = Date.now();
     const row = repo.get(req.params.id);
-    if (!isAvailable(row, now)) {
+    if (!isPublic(row, now)) {
       sendError(req, res, 410, 'This file has self-destructed.');
       return;
     }
@@ -104,7 +128,7 @@ function createFileRouter({ config, repo, files, storage, masterKey, limiters })
     const id = req.params.id;
     let now = Date.now();
     let row = repo.get(id);
-    if (!isAvailable(row, now)) {
+    if (!isPublic(row, now)) {
       sendError(req, res, 410, 'This file has self-destructed.');
       return;
     }
@@ -153,41 +177,7 @@ function createFileRouter({ config, repo, files, storage, masterKey, limiters })
       else sendError(req, res, 410, 'This file has self-destructed.');
       return;
     }
-    files.beginDownload(id);
-
-    let source;
-    let decrypt;
-    try {
-      const dataKey = cryptoUtil.unwrapKey(row.wrapped_key, row.wrap_iv, masterKey, id);
-      decrypt = cryptoUtil.createDecryptStream(dataKey, row.data_iv, row.auth_tag, id);
-      dataKey.fill(0);
-      source = await storage.download(row.storage_id);
-    } catch (err) {
-      log.warn(`download could not start: ${err.message}`);
-      await files.downloadFailed(id);
-      sendError(req, res, 502, 'The file could not be retrieved right now. Your download was not used up.', { title: 'Download failed' });
-      return;
-    }
-
-    const contentType = RISKY_MIME_RE.test(row.mime_type) ? 'application/octet-stream' : row.mime_type;
-    res.status(200);
-    res.set({
-      'Content-Type': contentType,
-      'Content-Length': String(row.size), // GCM is a stream mode: no padding
-      'Content-Disposition': contentDisposition(row.original_name),
-    });
-
-    pipeline(source, decrypt, res, (err) => {
-      if (err) {
-        // Client abort, storage error or auth-tag failure: give the download back.
-        if (err.code === 'EINTEGRITY') log.error('integrity check failed while serving a file');
-        else if (err.code !== 'ERR_STREAM_PREMATURE_CLOSE') log.warn(`download aborted: ${err.message}`);
-        res.destroy();
-        files.downloadFailed(id).catch((e) => log.error(`rollback failed: ${e.message}`));
-      } else {
-        files.downloadCompleted(id).catch((e) => log.error(`post-download cleanup failed: ${e.message}`));
-      }
-    });
+    await streamClaimedFile(req, res, row, { files, storage, masterKey });
   });
 
   /* ---------------- delete ---------------- */
