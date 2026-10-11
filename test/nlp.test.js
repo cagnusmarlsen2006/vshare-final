@@ -243,6 +243,9 @@ describe('help chatbot', () => {
     'how accurate is your machine learning model?': 'verify_how',
     'why was my document rejected': 'verify_rejected',
     'is my data encrypted': 'security',
+    'how do I sign in with google': 'signin',
+    'why cant I upload anything': 'signin',
+    'switch to dark mode': 'theme',
   };
   for (const [q, intent] of Object.entries(expect)) {
     it(`"${q}" -> ${intent}`, () => assert.equal(bot.respond(q).intent, intent));

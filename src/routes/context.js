@@ -53,7 +53,7 @@ function createContextRouter(deps) {
   const validCampus = (c) => typeof c === 'string' && config.CAMPUSES.includes(c);
 
   /* ---------- Faculty: step 1, generate a key ---------- */
-  router.post('/api/context/keys', limiters.access, json, (req, res) => {
+  router.post('/api/context/keys', limiters.access, deps.auth.requireFaculty, json, (req, res) => {
     const campus = req.body && req.body.campus;
     if (!validCampus(campus)) {
       res.status(400).json({ error: 'Choose a valid campus.' });
@@ -103,7 +103,7 @@ function createContextRouter(deps) {
       id, name, size, expiresAt, campus: settings.meta.campus, deletePath: `/f/${id}/delete?token=${deleteToken}`,
     }),
   };
-  router.post('/api/context/upload', limiters.upload, createUploadHandler(deps, profile));
+  router.post('/api/context/upload', limiters.upload, deps.auth.requireFaculty, createUploadHandler(deps, profile));
 
   /* ---------- Student ---------- */
   function lookup(campus, key) {

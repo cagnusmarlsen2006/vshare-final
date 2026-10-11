@@ -75,7 +75,7 @@ function createVerifyRouter(deps) {
       report: outcome.report,
     }),
   };
-  router.post('/api/verify/upload', limiters.upload, createUploadHandler(deps, profile));
+  router.post('/api/verify/upload', limiters.upload, deps.auth.requireUser, createUploadHandler(deps, profile));
 
   return router;
 }

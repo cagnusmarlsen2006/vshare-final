@@ -57,6 +57,46 @@ function listFromEnv(name, fallback) {
 
 const DATA_DIR = path.resolve(ROOT, env.DATA_DIR || 'data');
 
+const GOOGLE_ENDPOINTS = {
+  authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenUrl: 'https://oauth2.googleapis.com/token',
+  jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
+  issuers: ['https://accounts.google.com', 'accounts.google.com'],
+};
+
+function resolveAuth() {
+  const clientId = (env.GOOGLE_CLIENT_ID || '').trim();
+  const clientSecret = (env.GOOGLE_CLIENT_SECRET || '').trim();
+  const port = env.PORT && env.PORT !== '0' ? env.PORT : '3000';
+  const publicUrl = (env.PUBLIC_URL || `http://localhost:${port}`).replace(/\/+$/, '');
+  if (!/^https?:\/\/[^/\s]+$/.test(publicUrl)) throw new Error('PUBLIC_URL must look like https://vshare.example.com (no path)');
+  const endpoints = { ...GOOGLE_ENDPOINTS };
+  // Test hook ONLY: point the OAuth flow at a local fake Google server.
+  if (TEST_HOOKS && env.TEST_GOOGLE_BASE_URL) {
+    const base = env.TEST_GOOGLE_BASE_URL.replace(/\/+$/, '');
+    endpoints.authUrl = `${base}/o/oauth2/v2/auth`;
+    endpoints.tokenUrl = `${base}/token`;
+    endpoints.jwksUrl = `${base}/certs`;
+    endpoints.issuers = [base];
+  }
+  const list = (v) => String(v || '').toLowerCase().split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+  return {
+    enabled: Boolean(clientId && clientSecret),
+    clientId,
+    clientSecret,
+    publicUrl,
+    redirectUri: `${publicUrl}/auth/google/callback`,
+    secureCookies: publicUrl.startsWith('https://'),
+    endpoints,
+    // e.g. "prof@college.edu, @college.edu" (an entry starting with @ matches a whole domain)
+    facultyEmails: list(env.FACULTY_EMAILS),
+    // Optional: only these email domains may sign in, e.g. "college.edu,college.ac.in"
+    allowedDomains: list(env.ALLOWED_EMAIL_DOMAINS).map((d) => d.replace(/^@/, '')),
+    jwtSecret: env.JWT_SECRET || '', // empty: derived from the master key
+    sessionTtlSeconds: 7 * 24 * 60 * 60,
+  };
+}
+
 const config = Object.freeze({
   ROOT,
   NODE_ENV,
@@ -116,6 +156,10 @@ const config = Object.freeze({
 
   // Fake-news-proof sharing: the file is analysed in memory, so it is capped.
   VERIFY_MAX_BYTES: Math.min(10 * MB, resolveMaxFileSize()),
+
+  // Google sign-in (OAuth 2.0 / OpenID Connect) + JWT sessions. Enabled only when both
+  // GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set; otherwise uploads stay open.
+  AUTH: Object.freeze(resolveAuth()),
 
   // Passwords.
   PASSWORD_MAX_LENGTH: 256,

@@ -38,6 +38,7 @@ function layout({ title, body, scripts = [], bodyClass = '' }) {
 <title>${esc(title)} · Vshare</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
 </head>
 <body class="${esc(bodyClass)}">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -51,7 +52,7 @@ function layout({ title, body, scripts = [], bodyClass = '' }) {
 ${body}
 </main>
 <footer class="site-footer"><p>Files are encrypted with AES-256-GCM and destroy themselves.</p></footer>
-${[...scripts, '/js/chat.js'].map((s) => `<script src="${esc(s)}" defer></script>`).join('\n')}
+${[...scripts, '/js/auth-ui.js', '/js/chat.js'].map((s) => `<script src="${esc(s)}" defer></script>`).join('\n')}
 </body>
 </html>`;
 }

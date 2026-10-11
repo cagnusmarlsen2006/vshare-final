@@ -1,7 +1,8 @@
 # Vshare: secure file sharing, four ways
 
-Vshare is one Node.js app with **four file-sharing systems** behind a common hub, plus an
-offline help **chatbot** on every page:
+Vshare is one Node.js app with **four file-sharing systems** behind a common home page,
+optional **Google sign-in** (JWT sessions, faculty/student roles), a **night theme** with a
+toggle, and an offline help **chatbot** on every page:
 
 | System | What it does |
 |---|---|
@@ -25,6 +26,8 @@ and ML run **inside the app, offline** (no external AI service).
 
 - [Features](#features)
 - [The three additional systems](#the-three-additional-systems)
+- [Google sign-in and roles](#google-sign-in-and-roles)
+- [Night theme](#night-theme)
 - [NLP and machine learning (fake-news detection)](#nlp-and-machine-learning-fake-news-detection)
 - [Tech stack](#tech-stack)
 - [Quick start on Windows (PowerShell)](#quick-start-on-windows-powershell)
@@ -104,6 +107,76 @@ The share page of a verified file shows *"✓ Verified · credibility N/100 · S
 | Credible (shared) | Likely fake (rejected) |
 |---|---|
 | ![Credible](docs/screenshots/14-verify-credible.png) | ![Rejected](docs/screenshots/15-verify-rejected.png) |
+
+## Google sign-in and roles
+
+Optional. With `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` set, **uploading requires a Google
+account**, while **recipients never need one** (share links, campus keys and study lists stay
+open). Without them, sign-in is off and everything works as before (offline mode included).
+
+| Who | Can |
+|---|---|
+| Anyone (no account) | Open share links and download, access a campus file with key + campus, browse study material |
+| Signed-in user (**student**) | Everything above + self-destructing sharing + fake-news-proof sharing |
+| **Faculty** (email or @domain in `FACULTY_EMAILS`) | Everything above + generate campus keys, upload campus files, distribute study material |
+
+### Set it up (about 5 minutes, done in your Google account)
+
+1. Open <https://console.cloud.google.com/> → create (or pick) a project.
+2. **APIs & Services → OAuth consent screen**: choose *External*, fill in the app name and
+   your email, add the scopes `openid`, `email`, `profile`, and add yourself as a **test user**
+   (while the app is in "Testing", only test users can sign in).
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID** → type
+   **Web application** → **Authorized redirect URIs**: `http://localhost:3000/auth/google/callback`
+   (for a deployment: `https://your-domain/auth/google/callback`).
+4. Copy the **Client ID** and **Client secret** into `.env`:
+   ```
+   GOOGLE_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-...
+   PUBLIC_URL=http://localhost:3000
+   FACULTY_EMAILS=you@gmail.com
+   ```
+5. Restart (`npm start`), open <http://localhost:3000>, press **Sign in with Google**.
+
+`PUBLIC_URL` must match the address in the browser **exactly** (scheme, host, port), or Google
+answers `redirect_uri_mismatch`. Optional: `ALLOWED_EMAIL_DOMAINS=college.edu` to admit only
+your institution's accounts.
+
+### How it is secured
+
+- **Authorization-code flow with PKCE (S256), `state` and `nonce`**, all kept in a signed,
+  HttpOnly, 10-minute cookie scoped to `/auth`. A state mismatch (CSRF) or missing cookie stops
+  the flow.
+- The **Google ID token is verified locally**: RS256 signature against Google's published
+  JWKS keys (cached, refreshed on key rotation), `iss`, `aud` = our client ID, `exp`/`iat`,
+  `nonce`, and `email_verified`. No auth library: Node's `crypto` only.
+- Our **session is an HS256 JWT** (secret: `JWT_SECRET` or derived from `MASTER_KEY` with
+  HKDF) in an **HttpOnly, SameSite=Lax** cookie (`Secure` when `PUBLIC_URL` is https), valid
+  7 days. Tokens with another algorithm (incl. `alg: none`), a bad signature, an expired `exp`
+  or the wrong `typ` are ignored. The JWT is never readable by page scripts.
+- The server enforces every rule (401 sign-in needed, 403 faculty only); the page only
+  explains it. After sign-in the user returns to the page they came from, and only same-site
+  paths are accepted (no open redirect).
+- SameSite=Lax means other sites cannot make your browser upload or log out with your session.
+
+All of this is tested against a **fake Google** with a real RSA key (`test/auth.test.js`,
+26 tests: the happy path, forged signature, `alg: none`, wrong audience/issuer, expired token,
+replayed nonce, unverified email, disallowed domain, CSRF state, tampered/expired sessions,
+open-redirect attempts, role enforcement, recipients without accounts).
+
+> **Not verified in the sandbox:** sign-in against the **real** Google (needs your OAuth client
+> and a browser). Follow the steps above; if it fails, the error page says why.
+
+## Night theme
+
+The round button in the header switches between the light and night clay themes. By default
+the theme follows your operating system (`prefers-color-scheme`); an explicit choice is
+remembered on that device (localStorage). The theme script runs in `<head>`, so there is no
+flash of the wrong theme. Every text/background pair in both themes meets WCAG AA (≥ 4.5:1).
+
+| Light | Night |
+|---|---|
+| ![Home light](docs/screenshots/18-home-light.png) | ![Home night](docs/screenshots/19-home-dark.png) |
 
 ## NLP and machine learning (fake-news detection)
 
@@ -248,6 +321,11 @@ The size limit is defined in exactly one place: [`src/config.js`](src/config.js)
 | `MAX_FILE_SIZE_BYTES` | 10 MB (cloudinary) / 100 MB (mock) | Upload limit. Cloudinary's **free plan caps raw uploads at 10 MB**, hence the default |
 | `TRUST_PROXY` | `false` | Set to `1` behind exactly one reverse proxy (Caddy/nginx) so rate limiting sees real client IPs |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, `silent` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | *(empty)* | Enable Google sign-in (see [Google sign-in](#google-sign-in-and-roles)); empty = uploads open to everyone |
+| `PUBLIC_URL` | `http://localhost:PORT` | Exact public address; the OAuth redirect URI is `PUBLIC_URL/auth/google/callback`. https enables `Secure` cookies |
+| `FACULTY_EMAILS` | *(empty)* | Emails and/or `@domains` that get the faculty role |
+| `ALLOWED_EMAIL_DOMAINS` | *(empty = any)* | Only these email domains may sign in |
+| `JWT_SECRET` | *(derived from MASTER_KEY)* | Secret for session JWTs |
 | `CAMPUSES` | `Main Campus,North Campus,South Campus,City Campus` | Comma-separated campus names for context-based sharing |
 | `DEPARTMENTS` | `CSE,IT,ECE,EEE,MECH,CIVIL,AI & DS` | Comma-separated departments for study-material distribution |
 | `NODE_ENV` | `development` | `production` in Docker. `test` (with `STORAGE=mock` only) enables test hooks |
@@ -440,6 +518,10 @@ happens on `POST` (token in a hidden form field). The token is redacted from req
 | One key carrying two uploads / two downloads | ✅ Yes | Atomic key binding and the atomic one-download claim |
 | Fake document with a fake "reuters.com" source | ✅ Mitigated | Source URLs are self-reported, so P(fake) ≥ 0.9 caps the score at 40 and look-alike domains are caught |
 | Carefully written misinformation in sober style | ❌ No | The model scores wording and provenance, not facts; adversarial text can pass |
+| Forged / replayed Google sign-in | ✅ Yes | ID token signature (JWKS), audience, issuer, expiry, nonce and PKCE are all checked |
+| Session theft via page scripts (XSS) | ✅ Mitigated | HttpOnly session cookie + strict CSP |
+| Cross-site upload / logout (CSRF) | ✅ Mitigated | SameSite=Lax session cookie; OAuth `state` check |
+| Role escalation by editing the JWT | ✅ Yes | HS256 signature checked with `timingSafeEqual`; `alg: none` rejected |
 
 ---
 
@@ -465,11 +547,12 @@ the delete flow (GET only confirms, wrong token rejected, POST deletes); tampere
 fails and rolls back the count; settings-after-file rejected; test hooks impossible outside
 test mode.
 
-**113 tests** in four files: `vshare.test.js` and `limits.test.js` (the self-destructing core,
-31 tests), `systems.test.js` (hub, campus keys, study distribution, fake-news-proof sharing,
-chatbot API, DB migration; 30 tests) and `nlp.test.js` (stemmer, NER, source checks, text
-extraction incl. a real Chrome-generated PDF with embedded fonts, classifier, fusion rules,
-chatbot intents; 52 tests).
+**144 tests** in five files: `vshare.test.js` and `limits.test.js` (the self-destructing core,
+31 tests), `systems.test.js` (hub, night theme, campus keys, study distribution,
+fake-news-proof sharing, chatbot API, DB migration; 32 tests), `nlp.test.js` (stemmer, NER,
+source checks, text extraction incl. a real Chrome-generated PDF with embedded fonts,
+classifier, fusion rules, chatbot intents; 55 tests) and `auth.test.js` (Google sign-in + JWT
+sessions against a fake Google; 26 tests).
 
 Real output (Node 22.22.0, Linux sandbox; durations trimmed; full output in
 [`docs/test-results.txt`](docs/test-results.txt)):
@@ -501,14 +584,13 @@ Real output (Node 22.22.0, Linux sandbox; durations trimmed; full output in
 ▶ download limits (self-destructing core)
   ✔ 6 simultaneous downloads of a 1-download file: exactly one succeeds
   ✔ an interrupted download is rolled back and does not count
-  … (see docs/test-results.txt for all 113)
-ℹ tests 113
-ℹ suites 23
-ℹ pass 113
+  … (see docs/test-results.txt for all 144)
+ℹ tests 144
+ℹ pass 144
 ℹ fail 0
 ```
 
-All 113 tests also passed on **Node 18.20.8** and **Node 20.20.2** in the sandbox.
+All tests also passed on **Node 18.20.8** and **Node 20.20.2** in the sandbox.
 The PDF/PNG/ZIP/DOCX/PPTX fixtures are generated in memory with correct signatures and
 container structure ([`test/fixtures.js`](test/fixtures.js)).
 
@@ -758,7 +840,7 @@ vshare/
 │   ├── cloudinary-test-results.txt  # live Cloudinary round trip (passed)
 │   ├── ml-metrics.json           # real model metrics (held-out test set)
 │   ├── ml-fusion-eval.txt        # fusion-weight evaluation (npm run eval:fusion)
-│   ├── test-results.txt          # real output of npm test (113 tests)
+│   ├── test-results.txt          # real output of npm test (144 tests)
 │   └── screenshots/              # real screenshots taken in the sandbox (Chromium)
 ├── public/                       # frontend: no build step, no CDN
 │   ├── index.html                # hub: the four systems
@@ -772,7 +854,9 @@ vshare/
 │       ├── common.js             # shared helpers (XHR progress, copy, drop tray…)
 │       ├── upload.js  download.js
 │       ├── context.js  study.js  verify.js
-│       └── chat.js               # help chatbot widget (every page)
+│       ├── chat.js               # help chatbot widget (every page)
+│       ├── theme.js              # night theme toggle (loaded in <head>)
+│       └── auth-ui.js            # sign-in button / user chip, gates upload sections
 ├── scripts/
 │   ├── start-mock.js             # npm run start:mock (offline, cross-platform)
 │   ├── train-fake-news.js        # npm run train:model (downloads dataset, trains, writes metrics)
@@ -783,6 +867,7 @@ vshare/
 │   └── race-demo.js              # fire N parallel downloads at a share link (demo)
 ├── src/
 │   ├── server.js                 # entry: startup checks, cron, graceful shutdown
+│   ├── auth.js                   # Google OAuth (PKCE, ID-token verification) + JWT sessions + roles
 │   ├── app.js                    # Express app: helmet/CSP, rate limits, routes, chatbot API
 │   ├── config.js                 # ALL configuration (sizes, campuses, departments, limits)
 │   ├── crypto.js                 # envelope encryption, streaming GCM, scrypt, tokens
@@ -810,6 +895,7 @@ vshare/
 │   ├── vshare.test.js  limits.test.js   # self-destructing core
 │   ├── systems.test.js           # hub, campus, study, verify, chatbot, migration
 │   ├── nlp.test.js               # NLP / ML unit tests
+│   ├── auth.test.js              # Google sign-in + JWT sessions (fake Google)
 │   ├── helpers.js  fixtures.js
 │   └── fixtures/                 # sample articles + a Chrome-generated PDF
 ├── .env.example  .dockerignore  Dockerfile  docker-compose.yml
@@ -835,6 +921,10 @@ Mobile (360 px): ![Mobile](docs/screenshots/08-mobile-360.png)
 |---|---|---|
 | ![Hub](docs/screenshots/09-hub.png) | ![Chatbot](docs/screenshots/10-chatbot.png) | ![Wrong campus](docs/screenshots/12-campus-wrong-campus.png) |
 
+| Night theme: home (phone) | Night theme: signed in as student | Night theme: verification report |
+|---|---|---|
+| ![Mobile night](docs/screenshots/20-home-mobile-dark.png) | ![Student](docs/screenshots/21-campus-student-dark.png) | ![Report](docs/screenshots/22-verify-dark.png) |
+
 | Study materials | Verified file's download page | Campus page on a phone |
 |---|---|---|
 | ![Study](docs/screenshots/13-study.png) | ![Verified page](docs/screenshots/16-verified-download-page.png) | ![Mobile campus](docs/screenshots/17-mobile-campus.png) |
@@ -850,6 +940,7 @@ Mobile (360 px): ![Mobile](docs/screenshots/08-mobile-360.png)
 | App over HTTPS with the padlock | `docs/screenshots/aws-https.png` *(add)* |
 | Cloudinary Media Library showing the raw, authenticated (encrypted) object | `docs/screenshots/cloudinary-raw-object.png` *(add)* |
 | GitHub Actions CI green on Node 20 and 22 | `docs/screenshots/ci-green.png` *(add)* |
+| Signed in with your real Google account | `docs/screenshots/google-signin.png` *(add)* |
 
 ## License
 

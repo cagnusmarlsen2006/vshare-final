@@ -8,6 +8,7 @@
 <title>Vshare · Secure file sharing systems</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -18,49 +19,99 @@
   </nav>
 </header>
 
-<main id="main" class="container wide" tabindex="-1">
-  <section class="hero">
-    <h1>Secure file sharing, four ways</h1>
-    <p class="lead">Every file is encrypted with its own AES-256-GCM key before it is stored. Pick the system that fits what you are sharing.</p>
+<main id="main" class="container wide home" tabindex="-1">
+  <section class="home-hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="eyebrow">Encrypted · Self-destructing · AI-checked</p>
+      <h1 id="hero-title">Share files that <span class="accent">vanish</span>,<br>verified by <span class="accent-2">AI</span>.</h1>
+      <p class="lead">Every file gets its own AES-256-GCM key before it is stored. Links self-destruct,
+        campus keys work once, study material reaches the right class, and documents are
+        credibility-checked with NLP before they spread.</p>
+      <div class="hero-actions">
+        <a class="clay-button primary big-inline" href="/share.html">Start sharing</a>
+        <a class="clay-button big-inline" href="#systems">Explore the systems</a>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="float-card card-file">
+        <span class="art-file"></span>
+        <span class="art-lines"><i></i><i></i><i></i></span>
+        <span class="art-lock"></span>
+      </div>
+      <div class="float-card card-timer"><span class="art-clock"></span><b>00:09:59</b></div>
+      <div class="float-card card-check"><span class="art-check"></span><b>Verified 92/100</b></div>
+      <div class="float-card card-key"><span class="art-key"></span><b>VS-7KQM-…</b></div>
+    </div>
   </section>
 
-  <ul class="hub-grid" aria-label="Sharing systems">
-    <li>
-      <a class="clay-card hub-card" href="/share.html">
-        <span class="hub-icon hub-icon-share" aria-hidden="true"></span>
-        <span class="hub-title">Self-Destructing File Sharing</span>
-        <span class="hub-desc">A link that destroys itself after a time limit or a number of downloads. Optional password, private delete link.</span>
-        <span class="hub-cta">Explore system →</span>
-      </a>
-    </li>
-    <li>
-      <a class="clay-card hub-card" href="/context.html">
-        <span class="hub-icon hub-icon-campus" aria-hidden="true"></span>
-        <span class="hub-title">Context-Based File Sharing</span>
-        <span class="hub-desc">Faculty upload, students access with a one-time key that only works for the right campus.</span>
-        <span class="hub-cta">Explore system →</span>
-      </a>
-    </li>
-    <li>
-      <a class="clay-card hub-card" href="/study.html">
-        <span class="hub-icon hub-icon-study" aria-hidden="true"></span>
-        <span class="hub-title">Study Material Smart Distribution</span>
-        <span class="hub-desc">Upload once, reach the right department and year. Documents are auto-tagged with keywords.</span>
-        <span class="hub-cta">Explore system →</span>
-      </a>
-    </li>
-    <li>
-      <a class="clay-card hub-card" href="/verify.html">
-        <span class="hub-icon hub-icon-verify" aria-hidden="true"></span>
-        <span class="hub-title">Fake News Proof File Sharing</span>
-        <span class="hub-desc">NER, text mining and a machine-learning model check credibility. Only verified content gets shared.</span>
-        <span class="hub-cta">Explore system →</span>
-      </a>
-    </li>
+  <ul class="home-stats" aria-label="Highlights">
+    <li class="stat"><b>AES-256</b><span>GCM key per file, wrapped by a master key</span></li>
+    <li class="stat"><b>90.3%</b><span>held-out accuracy of the fake-news model</span></li>
+    <li class="stat"><b>1 click</b><span>to destroy a file early with your private link</span></li>
+    <li class="stat"><b>0</b><span>plaintext bytes ever written to disk or storage</span></li>
   </ul>
+
+  <section aria-labelledby="systems-title" id="systems" class="section">
+    <h2 id="systems-title" class="section-title">Four ways to share</h2>
+    <ul class="hub-grid" aria-label="Sharing systems">
+      <li>
+        <a class="clay-card hub-card" href="/share.html">
+          <span class="hub-icon hub-icon-share" aria-hidden="true"></span>
+          <span class="hub-title">Self-Destructing File Sharing</span>
+          <span class="hub-desc">A link that destroys itself after a time limit or a number of downloads. Optional password, private delete link.</span>
+          <span class="hub-cta">Explore system →</span>
+        </a>
+      </li>
+      <li>
+        <a class="clay-card hub-card" href="/context.html">
+          <span class="hub-icon hub-icon-campus" aria-hidden="true"></span>
+          <span class="hub-title">Context-Based File Sharing</span>
+          <span class="hub-desc">Faculty upload, students access with a one-time key that only works for the right campus.</span>
+          <span class="hub-cta">Explore system →</span>
+        </a>
+      </li>
+      <li>
+        <a class="clay-card hub-card" href="/study.html">
+          <span class="hub-icon hub-icon-study" aria-hidden="true"></span>
+          <span class="hub-title">Study Material Smart Distribution</span>
+          <span class="hub-desc">Upload once, reach the right department and year. Documents are auto-tagged with keywords.</span>
+          <span class="hub-cta">Explore system →</span>
+        </a>
+      </li>
+      <li>
+        <a class="clay-card hub-card" href="/verify.html">
+          <span class="hub-icon hub-icon-verify" aria-hidden="true"></span>
+          <span class="hub-title">Fake News Proof File Sharing</span>
+          <span class="hub-desc">NER, text mining and a machine-learning model check credibility. Only verified content gets shared.</span>
+          <span class="hub-cta">Explore system →</span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="how-title" class="section">
+    <h2 id="how-title" class="section-title">How it works</h2>
+    <ol class="steps">
+      <li class="clay-card step-card"><span class="step-no" aria-hidden="true">1</span><h3>Upload &amp; encrypt</h3>
+        <p>Your file streams through AES-256-GCM on the server. The storage provider only ever receives ciphertext.</p></li>
+      <li class="clay-card step-card"><span class="step-no" aria-hidden="true">2</span><h3>Share a link or a key</h3>
+        <p>Send a self-destructing link, a campus key or a class listing. Opening a page never uses up a download.</p></li>
+      <li class="clay-card step-card"><span class="step-no" aria-hidden="true">3</span><h3>It disappears</h3>
+        <p>When time or downloads run out, the file and its key are deleted. Late visitors see the "self-destructed" page.</p></li>
+    </ol>
+  </section>
+
+  <section class="clay-card cta-card" data-auth-show="signed-out" hidden aria-labelledby="cta-title">
+    <h2 id="cta-title">Ready to share?</h2>
+    <p class="lead">Sign in with your Google account to upload. Recipients never need an account.</p>
+    <a class="google-btn" href="/auth/google?returnTo=%2Fshare.html"><span class="google-g" aria-hidden="true">G</span><span>Sign in with Google</span></a>
+  </section>
 </main>
 
-<footer class="site-footer"><p>Files are encrypted with AES-256-GCM. Need help? Use the chat button.</p></footer>
+<footer class="site-footer"><p>Vshare · files are encrypted with AES-256-GCM and destroy themselves. Need help? Use the chat button.</p></footer>
+<script src="/js/auth-ui.js" defer></script>
 <script src="/js/chat.js" defer></script>
 </body>
 </html>

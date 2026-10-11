@@ -426,4 +426,4 @@ function createUploadHandler({ config, repo, files, storage, masterKey }, profil
   };
 }
 
-module.exports = { createUploadHandler, parseSettings, UploadError, humanSize };
+module.exports = { createUploadHandler, parseSettings, UploadError, humanSize, replyAfterDrain };

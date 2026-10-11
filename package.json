@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node src/server.js",
     "start:mock": "node scripts/start-mock.js",
-    "test": "node --test --test-reporter=spec test/vshare.test.js test/limits.test.js test/systems.test.js test/nlp.test.js",
+    "test": "node --test --test-reporter=spec test/vshare.test.js test/limits.test.js test/systems.test.js test/nlp.test.js test/auth.test.js",
     "test:cloudinary": "node scripts/test-cloudinary.js",
     "bench": "node scripts/bench-stream.js",
     "cloudinary:diagnose": "node scripts/cloudinary-diagnose.js",

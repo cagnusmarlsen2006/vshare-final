@@ -63,7 +63,7 @@ function createStudyRouter(deps) {
       id, name, size, expiresAt, ...meta, sharePath: `/f/${id}`, deletePath: `/f/${id}/delete?token=${deleteToken}`,
     }),
   };
-  router.post('/api/study/upload', limiters.upload, createUploadHandler(deps, profile));
+  router.post('/api/study/upload', limiters.upload, deps.auth.requireFaculty, createUploadHandler(deps, profile));
 
   router.get('/api/study/materials', (req, res) => {
     const { department, year } = req.query;

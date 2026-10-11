@@ -8,6 +8,7 @@
 <title>Self-destructing sharing · Vshare</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -19,7 +20,7 @@
 </header>
 
 <main id="main" class="container" tabindex="-1">
-  <section class="clay-card" id="upload-card" aria-labelledby="upload-title">
+  <section class="clay-card" id="upload-card" aria-labelledby="upload-title" data-requires="user">
     <h1 id="upload-title">Share a file that self-destructs</h1>
     <p class="lead">Encrypted before it leaves our server. Gone after the time or number of downloads you pick, whichever comes first.</p>
 
@@ -107,6 +108,7 @@
 
 <footer class="site-footer"><p>Files are encrypted with AES-256-GCM and destroy themselves.</p></footer>
 <script src="/js/upload.js" defer></script>
+<script src="/js/auth-ui.js" defer></script>
 <script src="/js/chat.js" defer></script>
 </body>
 </html>

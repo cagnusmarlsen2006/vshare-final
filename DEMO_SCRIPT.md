@@ -20,11 +20,15 @@ npm run start:mock          # offline; or: npm start  (with Cloudinary credentia
 
 ---
 
-## 0:00 to 0:30: The hub
+## 0:00 to 0:30: The home page, night theme and sign-in
 
-Open <http://localhost:3000>.
+Open <http://localhost:3000>. Click the moon button: the whole clay UI switches to the night
+theme (and remembers it). If Google sign-in is configured, press **Sign in with Google**:
+your name and role (Faculty / Student) appear in the header.
 
-> "Vshare is four file-sharing systems on one secure core. Whatever you upload, in any of
+> "Uploading needs a Google account, verified properly (PKCE, signed ID token), and the session
+> is a JWT the page's scripts can't read. Recipients never need an account.
+> Vshare is four file-sharing systems on one secure core. Whatever you upload, in any of
 > them, gets its own 256-bit key and is encrypted with AES-256-GCM **before** it leaves our
 > server, so our storage provider, Cloudinary, only ever sees ciphertext."
 
@@ -106,7 +110,7 @@ Click the chat bubble (bottom-right): ask *"how does fake news detection work?"*
 npm test
 ```
 
-> "113 automated tests in about 5 seconds, starting the real server: byte-for-byte SHA-256
+> "144 automated tests in about 6 seconds, starting the real server: byte-for-byte SHA-256
 > round trips, the race, lockout, tampering, campus keys, study visibility, the verify
 > verdicts, NER, the stemmer and the classifier. CI runs them on Node 20 and 22. For AWS:
 > a non-root Docker image on a free-tier EC2 instance, data on EBS, HTTPS via Caddy, secrets

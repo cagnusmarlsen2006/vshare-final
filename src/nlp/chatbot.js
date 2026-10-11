@@ -109,6 +109,18 @@ function buildIntents(config, modelMetrics) {
       answer: () => 'Files are shared only when the credibility score is 65/100 or more. Common reasons for a low score: sensational wording, no attribution to sources, a missing or unknown source URL, a look-alike or known unreliable domain, or too little readable text (scanned images have none). Add the original source URL, or your trusted domains, and try again.',
     },
     {
+      id: 'signin',
+      examples: ['how do i sign in', 'login with google', 'why cant i upload', 'sign in required', 'how do i become faculty', 'faculty account', 'log out', 'sign out'],
+      answer: () => (config.AUTH && config.AUTH.enabled
+        ? 'Use "Sign in with Google" at the top right. Signed-in users can upload; faculty actions (campus keys, study material) need an account listed by the administrator in FACULTY_EMAILS. Recipients never need an account. Sign out from the same menu.'
+        : 'Sign-in is not configured on this server, so uploading is open to everyone. The administrator can enable Google sign-in with GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.'),
+    },
+    {
+      id: 'theme',
+      examples: ['dark mode', 'night theme', 'change theme', 'light mode'],
+      answer: () => 'Use the round moon / sun button at the top right to switch between the light and night themes. Your choice is remembered on this device.',
+    },
+    {
       id: 'goodbye',
       examples: ['bye', 'goodbye', 'see you', 'that is all'],
       answer: () => 'Goodbye! Your files will self-destruct on schedule.',

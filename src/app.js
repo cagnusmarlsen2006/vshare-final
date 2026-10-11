@@ -7,7 +7,8 @@ const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
 const log = require('./logger');
 const { sendError } = require('./http');
-const { createUploadHandler } = require('./routes/upload');
+const { createUploadHandler, replyAfterDrain } = require('./routes/upload');
+const { createAuth } = require('./auth');
 const { createFileRouter } = require('./routes/files');
 const { createContextRouter } = require('./routes/context');
 const { createStudyRouter } = require('./routes/study');
@@ -114,8 +115,13 @@ function createApp({ config, db, repo, files, storage, masterKey }) {
     });
   });
 
-  const deps = { config, repo, files, storage, masterKey, limiters };
-  app.post('/api/upload', limiters.upload, createUploadHandler(deps));
+  // Google sign-in + JWT session (no-op when GOOGLE_CLIENT_ID/SECRET are not set).
+  const auth = createAuth({ config, masterKey, limiters, replyAfterDrain });
+  app.use(auth.middleware);
+  app.use(auth.router);
+
+  const deps = { config, repo, files, storage, masterKey, limiters, auth };
+  app.post('/api/upload', limiters.upload, auth.requireUser, createUploadHandler(deps));
   app.use(createContextRouter(deps));
   app.use(createStudyRouter(deps));
   app.use(createVerifyRouter(deps));

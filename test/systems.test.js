@@ -60,9 +60,24 @@ describe('hub and pages', () => {
       assert.equal(res.status, 200);
       assert.doesNotMatch(res.headers['content-security-policy'], /unsafe-inline/);
       assert.match(res.body.toString(), /<script src="\/js\/chat\.js" defer><\/script>/);
+      // theme applied before first paint (in <head>, not deferred) + sign-in UI
+      assert.match(res.body.toString(), /<head>[\s\S]*<script src="\/js\/theme\.js"><\/script>[\s\S]*<\/head>/);
+      assert.match(res.body.toString(), /<script src="\/js\/auth-ui\.js" defer><\/script>/);
       assert.doesNotMatch(res.body.toString(), /<script>|style="/);
     });
   }
+
+  it('the stylesheet defines a night theme (OS preference + explicit toggle)', async () => {
+    const css = (await request(srv.port, { path: '/css/style.css' })).body.toString();
+    assert.match(css, /@media \(prefers-color-scheme: dark\)\s*{\s*:root:not\(\[data-theme="light"\]\)/);
+    assert.match(css, /:root\[data-theme="dark"\] {/);
+  });
+
+  it('server-rendered pages get the theme and sign-in scripts too', async () => {
+    const html = (await request(srv.port, { path: '/f/AAAAAAAAAAAAAAAAAAAAA' })).body.toString();
+    assert.match(html, /\/js\/theme\.js/);
+    assert.match(html, /\/js\/auth-ui\.js/);
+  });
 
   it('the hub links all four systems', async () => {
     const html = (await request(srv.port, { path: '/' })).body.toString();

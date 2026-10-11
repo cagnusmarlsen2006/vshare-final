@@ -32,7 +32,7 @@ and a 90%-accurate ML classifier), all on per-file AES-256-GCM envelope encrypti
   stayed **~113 MB for both 100 MB and 500 MB files** in a local benchmark.
 - Hardened the app with **scrypt + constant-time comparison**, a 5-attempt / 15-minute
   lockout, per-IP rate limiting, a **strict CSP with no inline code**, hashed delete tokens and
-  log redaction; wrote **113 automated tests** (Node's built-in test runner) passing on
+  log redaction; wrote **144 automated tests** (Node's built-in test runner) passing on
   Node 18, 20 and 22, and containerised it (non-root multi-stage Dockerfile, health check)
   with GitHub Actions CI and an EC2 + EBS + Caddy HTTPS + SSM deployment guide.
 - Built an **offline fake-news screening pipeline** in Node.js: text extraction (own PDF
@@ -40,6 +40,10 @@ and a 90%-accurate ML classifier), all on per-file AES-256-GCM envelope encrypti
   n-grams, TF-IDF, readability, extractive summarisation) and a **TF-IDF + logistic regression
   classifier reaching 90.3% held-out accuracy** on 1,266 articles (Naive Bayes baseline
   87.1%), fused with style and source-domain signals using weights tuned on the test set.
+- Implemented **Google sign-in from scratch** (OAuth 2.0 authorization code + PKCE, state and
+  nonce; RS256 ID-token verification against Google's JWKS with Node `crypto`) and **JWT
+  sessions** in HttpOnly SameSite cookies with faculty/student roles; 26 tests cover forged,
+  replayed and tampered tokens against a fake Google server.
 - Added **campus-locked one-time access keys** (only hashes stored, atomic key binding,
   single-use download) and **department/year-targeted study-material distribution** with
   automatic TF-IDF keyword tagging, reusing one generic encrypted streaming upload pipeline.
@@ -157,4 +161,18 @@ Fetching arbitrary user-supplied URLs from the server is a classic SSRF risk (in
 services, cloud metadata endpoints), and it would break offline use. So the URL is analysed
 structurally only: curated lists, institutional TLDs, look-alike detection with Levenshtein
 distance. And it is treated as weak, self-reported evidence.
+
+**16. Why implement OAuth yourself instead of using Passport or a library?**
+To show I understand the protocol and to keep dependencies minimal, but carefully: the flow
+uses PKCE, `state` (CSRF) and `nonce` (replay); the ID token is verified for signature (RS256
+with Google's rotating JWKS), issuer, audience, expiry and nonce; and every one of those
+checks has a test that feeds it a bad token. In a production team I would still weigh a
+maintained library (e.g. `openid-client`) against owning this code.
+
+**17. Why a JWT in an HttpOnly cookie rather than localStorage?**
+localStorage is readable by any script on the page, so one XSS would leak the session.
+An HttpOnly cookie is invisible to JavaScript, and SameSite=Lax stops other sites from
+sending it with cross-site POSTs (CSRF). The trade-off of stateless JWTs is revocation: a
+token stays valid until it expires (7 days), so logout only clears the cookie. A server-side
+denylist or short-lived tokens with refresh would fix that.
 

@@ -8,6 +8,7 @@
 <title>Context-based sharing · Vshare</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -27,7 +28,7 @@
 
   <div class="split">
     <!-- Faculty -->
-    <section class="clay-card panel" aria-labelledby="faculty-title">
+    <section class="clay-card panel" aria-labelledby="faculty-title" data-requires="faculty">
       <div class="panel-head">
         <span class="panel-icon panel-icon-faculty" aria-hidden="true"></span>
         <div><h2 id="faculty-title">Faculty</h2><p class="hint">Upload files &amp; share access keys</p></div>
@@ -120,6 +121,7 @@
 <footer class="site-footer"><p>Files are encrypted with AES-256-GCM and self-destruct after use.</p></footer>
 <script src="/js/common.js" defer></script>
 <script src="/js/context.js" defer></script>
+<script src="/js/auth-ui.js" defer></script>
 <script src="/js/chat.js" defer></script>
 </body>
 </html>

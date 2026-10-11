@@ -8,6 +8,7 @@
 <title>Fake-news-proof sharing · Vshare</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -25,7 +26,7 @@
     <p class="lead">Upload a document and cite its source. NLP and machine learning check its credibility, and only verified content gets a share link.</p>
   </section>
 
-  <section class="clay-card" id="v-card" aria-labelledby="v-title">
+  <section class="clay-card" id="v-card" aria-labelledby="v-title" data-requires="user">
     <h2 id="v-title" class="sr-only">Verify and share</h2>
     <form id="v-form" class="stack" novalidate>
       <label class="dropzone" id="v-drop" for="v-file">
@@ -124,6 +125,7 @@
 <footer class="site-footer"><p>Credibility is an estimate from NLP signals, not a fact-check by a human.</p></footer>
 <script src="/js/common.js" defer></script>
 <script src="/js/verify.js" defer></script>
+<script src="/js/auth-ui.js" defer></script>
 <script src="/js/chat.js" defer></script>
 </body>
 </html>
