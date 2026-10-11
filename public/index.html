@@ -1,1 +1,108 @@
-<h1>hi</h1>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Vshare: share files that self-destruct. Encrypted with AES-256-GCM, gone after the time or download limit you choose.">
+<meta name="referrer" content="no-referrer">
+<title>Vshare · Self-destructing file sharing</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <a class="brand" href="/" aria-label="Vshare home"><span class="brand-mark" aria-hidden="true"></span>Vshare</a>
+</header>
+
+<main id="main" class="container" tabindex="-1">
+  <section class="clay-card" id="upload-card" aria-labelledby="upload-title">
+    <h1 id="upload-title">Share a file that self-destructs</h1>
+    <p class="lead">Encrypted before it leaves our server. Gone after the time or number of downloads you pick, whichever comes first.</p>
+
+    <form id="upload-form" class="stack" novalidate>
+      <label class="dropzone" id="dropzone" for="file-input">
+        <input class="sr-only" type="file" id="file-input" name="file" aria-describedby="size-hint">
+        <span class="dropzone-icon" aria-hidden="true"></span>
+        <span class="dropzone-title">Drag &amp; drop a file here</span>
+        <span class="dropzone-sub">or <span class="link-like">browse your device</span></span>
+        <span class="dropzone-hint" id="size-hint">Any file type. Max <span id="max-size">10 MB</span>.</span>
+        <span class="selected-file" id="selected-file" hidden></span>
+      </label>
+
+      <div class="settings">
+        <div class="field">
+          <label for="expiry">Self-destruct after</label>
+          <select class="clay-input" id="expiry" name="expiry">
+            <option value="10m">10 minutes</option>
+            <option value="1h">1 hour</option>
+            <option value="1d" selected>1 day</option>
+            <option value="7d">7 days</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="max-downloads">or after downloads</label>
+          <select class="clay-input" id="max-downloads" name="max_downloads">
+            <option value="">No limit</option>
+            <option value="1" selected>1 download</option>
+            <option value="2">2 downloads</option>
+            <option value="3">3 downloads</option>
+            <option value="4">4 downloads</option>
+            <option value="5">5 downloads</option>
+            <option value="6">6 downloads</option>
+            <option value="7">7 downloads</option>
+            <option value="8">8 downloads</option>
+            <option value="9">9 downloads</option>
+            <option value="10">10 downloads</option>
+          </select>
+        </div>
+        <div class="field field-wide">
+          <label for="password">Password <span class="optional">(optional)</span></label>
+          <input class="clay-input" type="password" id="password" name="password" maxlength="256" autocomplete="new-password" placeholder="Leave empty for no password">
+        </div>
+      </div>
+
+      <div class="progress" id="progress" hidden>
+        <div class="progress-track" role="progressbar" aria-labelledby="progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="progress-label" id="progress-label">Uploading… <span id="progress-pct">0%</span></p>
+      </div>
+
+      <div id="upload-status" aria-live="polite" aria-atomic="true"></div>
+
+      <button class="clay-button primary big" type="submit" id="upload-button">Encrypt &amp; upload</button>
+    </form>
+  </section>
+
+  <section class="clay-card" id="result-card" aria-labelledby="result-title" hidden tabindex="-1">
+    <div class="success-badge" aria-hidden="true"></div>
+    <h2 id="result-title">Your link is ready</h2>
+    <p class="lead" id="result-summary"></p>
+
+    <div class="field">
+      <label for="share-link">Share link: send this to the recipient</label>
+      <div class="copy-row">
+        <input class="clay-input" id="share-link" type="text" readonly>
+        <button class="clay-button primary copy-button" type="button" data-copy-target="share-link">Copy</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="delete-link">Private delete link: keep this to yourself</label>
+      <div class="copy-row">
+        <input class="clay-input" id="delete-link" type="text" readonly>
+        <button class="clay-button copy-button" type="button" data-copy-target="delete-link">Copy</button>
+      </div>
+      <p class="hint">Opening it asks for confirmation before deleting. We cannot show it again.</p>
+    </div>
+
+    <div id="copy-status" class="sr-only" aria-live="polite"></div>
+    <button class="clay-button big" type="button" id="again-button">Share another file</button>
+  </section>
+</main>
+
+<footer class="site-footer"><p>Files are encrypted with AES-256-GCM and destroy themselves.</p></footer>
+<script src="/js/upload.js" defer></script>
+</body>
+</html>
